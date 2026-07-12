@@ -10,7 +10,31 @@ document.addEventListener('DOMContentLoaded', () => {
   startClockAndCoords();
   runTerminalLog();
   buildKeypad();
+  scheduleClawReach();
 });
+
+/* ---------------------------------------------------------
+   0. The claw — sits hidden behind the logo disc, occasionally
+      reaches out past its edge, then withdraws. Timing is
+      randomized so it never feels like a predictable loop.
+   --------------------------------------------------------- */
+function scheduleClawReach() {
+  const claw = document.getElementById('claw');
+  if (!claw) return;
+
+  function reach() {
+    claw.classList.add('reach');
+    const holdTime = 1000 + Math.random() * 700;
+    setTimeout(() => {
+      claw.classList.remove('reach');
+      const nextDelay = 7000 + Math.random() * 14000;
+      setTimeout(reach, nextDelay);
+    }, holdTime);
+  }
+
+  const initialDelay = 4000 + Math.random() * 6000;
+  setTimeout(reach, initialDelay);
+}
 
 /* ---------------------------------------------------------
    1. Boot sequence — a short burst of static before reveal
