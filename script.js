@@ -10,30 +10,42 @@ document.addEventListener('DOMContentLoaded', () => {
   startClockAndCoords();
   runTerminalLog();
   buildKeypad();
-  scheduleClawReach();
+  scheduleGlitches();
 });
 
 /* ---------------------------------------------------------
-   0. The claw — sits hidden behind the logo disc, occasionally
-      reaches out past its edge, then withdraws. Timing is
-      randomized so it never feels like a predictable loop.
+   0. Page glitch — sporadically slaps a brief visual corruption
+      across the whole page: RGB split, jitter, a scanline flash.
+      Randomized timing so it never reads as a predictable loop.
    --------------------------------------------------------- */
-function scheduleClawReach() {
-  const claw = document.getElementById('claw');
-  if (!claw) return;
+function scheduleGlitches() {
+  const layer = document.createElement('div');
+  layer.id = 'glitch-layer';
+  document.body.appendChild(layer);
 
-  function reach() {
-    claw.classList.add('reach');
-    const holdTime = 1000 + Math.random() * 700;
+  function fire() {
+    document.body.classList.add('glitching');
+
+    // occasionally do a quick double-hit for variety
+    const doubleHit = Math.random() < 0.25;
+    const burst = 140 + Math.random() * 220;
+
     setTimeout(() => {
-      claw.classList.remove('reach');
-      const nextDelay = 7000 + Math.random() * 14000;
-      setTimeout(reach, nextDelay);
-    }, holdTime);
+      document.body.classList.remove('glitching');
+      if (doubleHit) {
+        setTimeout(() => {
+          document.body.classList.add('glitching');
+          setTimeout(() => document.body.classList.remove('glitching'), 80 + Math.random() * 80);
+        }, 90 + Math.random() * 60);
+      }
+    }, burst);
+
+    const nextDelay = 5000 + Math.random() * 13000;
+    setTimeout(fire, nextDelay);
   }
 
-  const initialDelay = 4000 + Math.random() * 6000;
-  setTimeout(reach, initialDelay);
+  const initialDelay = 3000 + Math.random() * 5000;
+  setTimeout(fire, initialDelay);
 }
 
 /* ---------------------------------------------------------
