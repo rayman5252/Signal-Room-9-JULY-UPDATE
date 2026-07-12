@@ -10,43 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   startClockAndCoords();
   runTerminalLog();
   buildKeypad();
-  scheduleGlitches();
 });
-
-/* ---------------------------------------------------------
-   0. Page glitch — sporadically slaps a brief visual corruption
-      across the whole page: RGB split, jitter, a scanline flash.
-      Randomized timing so it never reads as a predictable loop.
-   --------------------------------------------------------- */
-function scheduleGlitches() {
-  const layer = document.createElement('div');
-  layer.id = 'glitch-layer';
-  document.body.appendChild(layer);
-
-  function fire() {
-    document.body.classList.add('glitching');
-
-    // occasionally do a quick double-hit for variety
-    const doubleHit = Math.random() < 0.25;
-    const burst = 140 + Math.random() * 220;
-
-    setTimeout(() => {
-      document.body.classList.remove('glitching');
-      if (doubleHit) {
-        setTimeout(() => {
-          document.body.classList.add('glitching');
-          setTimeout(() => document.body.classList.remove('glitching'), 80 + Math.random() * 80);
-        }, 90 + Math.random() * 60);
-      }
-    }, burst);
-
-    const nextDelay = 5000 + Math.random() * 13000;
-    setTimeout(fire, nextDelay);
-  }
-
-  const initialDelay = 3000 + Math.random() * 5000;
-  setTimeout(fire, initialDelay);
-}
 
 /* ---------------------------------------------------------
    1. Boot sequence — a short burst of static before reveal
