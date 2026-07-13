@@ -203,6 +203,109 @@
   .brief p + p{ margin-top: 14px; }
   .brief strong{ color: var(--amber); font-weight: 600; }
 
+  /* ---------- brief layout + rotating intercept carousel ---------- */
+  .brief-layout{
+    display:flex;
+    gap: 36px;
+    align-items:flex-start;
+    flex-wrap: wrap;
+  }
+  .brief-text{ flex: 1 1 380px; min-width: 260px; }
+  .carousel-figure{
+    flex: 0 0 260px;
+    width: 260px;
+    margin:0;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    padding: 10px;
+    position: relative;
+  }
+  .carousel-figure::before{
+    content: attr(data-tag);
+    position:absolute;
+    top: 18px; left: 18px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--amber);
+    background: rgba(0,0,0,0.55);
+    padding: 3px 8px;
+    z-index: 3;
+    border: 1px solid rgba(209,161,61,0.4);
+  }
+  .carousel-figure .frame{
+    position:relative;
+    overflow:hidden;
+    height: 260px;
+    filter: grayscale(0.15) contrast(1.05);
+  }
+  .carousel-slide{
+    position:absolute;
+    inset:0;
+    width:100%; height:100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.15s linear;
+  }
+  .carousel-slide.active{ opacity: 1; }
+  .carousel-figure .scan-line{
+    position:absolute; left:0; right:0; top:0;
+    height: 40%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), transparent);
+    animation: scan 4.5s linear infinite;
+    pointer-events:none;
+    z-index: 2;
+  }
+  .carousel-glitch{
+    position:absolute; inset:0;
+    pointer-events:none;
+    opacity: 0;
+    z-index: 4;
+    mix-blend-mode: screen;
+  }
+  .carousel-glitch.active{
+    animation: carouselGlitch 0.4s steps(2, end) 1;
+  }
+  @keyframes carouselGlitch{
+    0%{
+      opacity: 0.9;
+      background: rgba(64,220,255,0.25);
+      clip-path: inset(10% 0 60% 0);
+      transform: translateX(-6px);
+    }
+    20%{
+      opacity: 0.9;
+      background: rgba(209,56,44,0.3);
+      clip-path: inset(55% 0 10% 0);
+      transform: translateX(6px);
+    }
+    40%{
+      opacity: 0.8;
+      background: rgba(255,255,255,0.15);
+      clip-path: inset(30% 0 40% 0);
+      transform: translateX(-4px);
+    }
+    60%{
+      opacity: 0.8;
+      background: rgba(64,220,255,0.2);
+      clip-path: inset(70% 0 5% 0);
+      transform: translateX(5px);
+    }
+    100%{ opacity: 0; transform: translateX(0); }
+  }
+  .carousel-figure figcaption{
+    padding: 12px 6px 4px;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    display:flex;
+    justify-content: space-between;
+  }
+  .carousel-figure figcaption .code{ color: var(--rust); }
+  @media (max-width: 700px){
+    .carousel-figure{ flex: 1 1 100%; width: 100%; }
+    .carousel-figure .frame{ height: 220px; }
+  }
+
   /* ---------- dossier photo grid ---------- */
   .dossier-grid{
     display:grid;
@@ -399,9 +502,22 @@
 
   <section class="brief">
     <div class="section-label">Station Brief</div>
-    <p>Somewhere below the grid, past a hallway that isn't on any floor plan, a relay listens to frequencies that were never assigned. <strong>Signal Room 9</strong> does not transmit. It only receives — patient, unmanned, indifferent to what it hears.</p>
-    <p>Three watch rotations keep the room lit. None of them have ever met. Correspondence is left in the log below, typed once, read once, and never acknowledged.</p>
-    <p>If you found this page, you were not supposed to. <strong>Proceed at your own clearance.</strong></p>
+    <div class="brief-layout">
+      <div class="brief-text">
+        <p>Somewhere below the grid, past a hallway that isn't on any floor plan, a relay listens to frequencies that were never assigned. <strong>Signal Room 9</strong> does not transmit. It only receives — patient, unmanned, indifferent to what it hears.</p>
+        <p>Three watch rotations keep the room lit. None of them have ever met. Correspondence is left in the log below, typed once, read once, and never acknowledged.</p>
+        <p>If you found this page, you were not supposed to. <strong>Proceed at your own clearance.</strong></p>
+      </div>
+      <figure class="carousel-figure" data-tag="INTERCEPT">
+        <div class="frame">
+          <img id="carousel-img" class="carousel-slide active" src="" alt="Intercepted still, unverified">
+          <img id="carousel-img-b" class="carousel-slide" src="" alt="Intercepted still, unverified">
+          <div class="scan-line"></div>
+          <div class="carousel-glitch" id="carousel-glitch"></div>
+        </div>
+        <figcaption><span id="carousel-label">Corridor motion, unlogged</span><span class="code" id="carousel-code">REF-014</span></figcaption>
+      </figure>
+    </div>
   </section>
 
   <section>
