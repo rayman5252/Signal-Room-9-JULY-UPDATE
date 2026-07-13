@@ -123,6 +123,7 @@
     max-width: 980px;
     margin: 40px auto 0;
     padding: 0 24px;
+    position: relative;
   }
   #waveform{
     width:100%;
@@ -130,6 +131,41 @@
     display:block;
     border-top: 1px solid var(--panel-edge);
     border-bottom: 1px solid var(--panel-edge);
+  }
+  /* ---------- intercepted voice fragment ---------- */
+  #voice-fragment{
+    position:absolute;
+    left: 24px; right: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align:center;
+    pointer-events:none;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--paper);
+    text-shadow:
+      1.5px 0 var(--signal-red),
+      -1.5px 0 rgba(64,220,255,0.7);
+    opacity: 0;
+    filter: blur(0.3px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #voice-fragment.show{
+    animation: voiceGlitch 0.9s steps(2, end) 1;
+    opacity: 0.85;
+  }
+  @keyframes voiceGlitch{
+    0%{ opacity:0; transform: translateY(-50%) translateX(-2px); }
+    8%{ opacity:0.85; transform: translateY(-50%) translateX(2px); }
+    16%{ transform: translateY(-50%) translateX(-3px); }
+    24%{ transform: translateY(-50%) translateX(1px); }
+    32%{ opacity:0.3; }
+    40%{ opacity:0.85; transform: translateY(-50%) translateX(-1px); }
+    70%{ opacity:0.85; transform: translateY(-50%) translateX(0); }
+    88%{ opacity:0.2; }
+    100%{ opacity:0; }
   }
   .freq-readout{
     display:flex; justify-content: space-between;
@@ -353,6 +389,7 @@
 
   <div class="waveform-strip">
     <canvas id="waveform"></canvas>
+    <div id="voice-fragment"></div>
     <div class="freq-readout">
       <span>SIGNAL: <span class="live" id="sig-strength">--</span></span>
       <span id="clock-readout">00:00:00 Z</span>

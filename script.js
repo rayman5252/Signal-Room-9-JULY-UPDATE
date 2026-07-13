@@ -73,6 +73,7 @@ function startWaveform() {
   const canvas = document.getElementById('waveform');
   const ctx = canvas.getContext('2d');
   const sigStrengthEl = document.getElementById('sig-strength');
+  const voiceEl = document.getElementById('voice-fragment');
 
   function resize() {
     canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -83,39 +84,130 @@ function startWaveform() {
 
   let t = 0;
 
+  // --- sporadic static burst state ---
+  let burstFrames = 0;                          // frames remaining in the current burst
+  let burstCooldown = 140 + Math.random() * 300; // frames until the next burst may fire
+
+  // --- intercepted, unintelligible voice fragments ---
+  // Deliberately garbled — never full sentences. It should read like
+  // partial audio that cut out, not dialogue.
+  const VOICE_FRAGMENTS = [
+    '...w— don\u2019t answ—',
+    '[UNINTELLIGIBLE]',
+    '—no relay, repeat, no rel—',
+    '...count of three, then—',
+    '...still there? ...still—',
+    '...the room, the room, the ro—',
+    '[VOICE OVERLAP DETECTED]',
+    '...19 minutes, same as bef—',
+    '—h-hello? hello? hel—',
+    '...static ...hear that ...static—'
+  ];
+
+  function scheduleVoice() {
+    const delay = 9000 + Math.random() * 15000; // 9–24s between fragments
+    setTimeout(() => {
+      showVoiceFragment();
+      scheduleVoice();
+    }, delay);
+  }
+
+  function showVoiceFragment() {
+    const phrase = VOICE_FRAGMENTS[Math.floor(Math.random() * VOICE_FRAGMENTS.length)];
+    voiceEl.textContent = phrase;
+    voiceEl.classList.remove('show');
+    // force reflow so the animation restarts on repeat fragments
+    void voiceEl.offsetWidth;
+    voiceEl.classList.add('show');
+    // pair the voice with a short static burst for cohesion
+    burstFrames = Math.max(burstFrames, 16 + Math.random() * 14);
+    setTimeout(() => voiceEl.classList.remove('show'), 900);
+  }
+
+  scheduleVoice();
+
+  // sparse speckle static — cheaper than full-frame snow, and reads
+  // as an interference "burst" rather than a constant TV-static look
+  function drawStaticOverlay(w, h, intensity) {
+    const speckCount = Math.floor((w * h) / 1400 * intensity);
+    for (let i = 0; i < speckCount; i++) {
+      const x = Math.random() * w;
+      const y = Math.random() * h;
+      const size = Math.random() * 2.2 * devicePixelRatio;
+      const v = Math.random() * 255;
+      ctx.fillStyle = `rgba(${v},${v},${v},${0.12 + Math.random() * 0.35})`;
+      ctx.fillRect(x, y, size, size);
+    }
+  }
+
   function draw() {
     const w = canvas.width;
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    ctx.strokeStyle = 'rgba(209,56,44,0.85)';
-    ctx.lineWidth = 1.5 * devicePixelRatio;
-    ctx.beginPath();
+    const inBurst = burstFrames > 0;
+
+    if (!inBurst) {
+      burstCooldown--;
+      if (burstCooldown <= 0) {
+        burstFrames = 8 + Math.random() * 22;
+        burstCooldown = 220 + Math.random() * 500;
+      }
+    }
 
     const mid = h / 2;
     const points = 220;
-    for (let i = 0; i <= points; i++) {
-      const x = (i / points) * w;
-      // layered sine waves + noise bursts to feel like a real listening station,
-      // not a clean sine — occasional spikes simulate intercepted bursts
-      const base =
-        Math.sin(i * 0.15 + t) * 10 +
-        Math.sin(i * 0.045 + t * 1.7) * 18;
-      const noise = (Math.random() - 0.5) * 4;
-      const burst =
-        Math.random() > 0.985 ? (Math.random() - 0.5) * 60 : 0;
 
-      const y = mid + base + noise + burst;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+    function tracePath(offsetX, ampMul, jitter) {
+      ctx.beginPath();
+      for (let i = 0; i <= points; i++) {
+        const x = (i / points) * w + offsetX;
+        const base =
+          Math.sin(i * 0.15 + t) * 10 * ampMul +
+          Math.sin(i * 0.045 + t * 1.7) * 18 * ampMul;
+        const noise = (Math.random() - 0.5) * jitter;
+        const spike =
+          Math.random() > (inBurst ? 0.93 : 0.985)
+            ? (Math.random() - 0.5) * (inBurst ? 90 : 60)
+            : 0;
+        const y = mid + base + noise + spike;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
     }
-    ctx.stroke();
+
+    if (inBurst) {
+      // chromatic-aberration style RGB split while interference is high
+      ctx.lineWidth = 1.3 * devicePixelRatio;
+      ctx.strokeStyle = 'rgba(64,220,255,0.35)';
+      tracePath(-1.5 * devicePixelRatio, 1.15, 14);
+      ctx.strokeStyle = 'rgba(209,56,44,0.55)';
+      tracePath(1.5 * devicePixelRatio, 1.15, 14);
+      ctx.strokeStyle = 'rgba(217,211,191,0.9)';
+      ctx.lineWidth = 1.5 * devicePixelRatio;
+      tracePath(0, 1.15, 14);
+
+      drawStaticOverlay(w, h, 1.4);
+      burstFrames--;
+    } else {
+      ctx.strokeStyle = 'rgba(209,56,44,0.85)';
+      ctx.lineWidth = 1.5 * devicePixelRatio;
+      tracePath(0, 1, 4);
+
+      // rare, faint speckle even at rest — the signal is never perfectly clean
+      if (Math.random() > 0.92) drawStaticOverlay(w, h, 0.15);
+    }
 
     t += 0.05;
 
-    // fake but stable-feeling signal strength readout
-    const strength = 60 + Math.round(Math.sin(t * 0.7) * 15 + Math.random() * 6);
-    sigStrengthEl.textContent = `${strength}%`;
+    // fake but stable-feeling signal strength readout, which dips and
+    // flags during a burst
+    const strength = inBurst
+      ? Math.max(4, Math.round(18 + Math.random() * 22))
+      : 60 + Math.round(Math.sin(t * 0.7) * 15 + Math.random() * 6);
+    sigStrengthEl.textContent = inBurst ? `${strength}% \u26a0` : `${strength}%`;
+    sigStrengthEl.style.color = inBurst ? 'var(--signal-red)' : '';
 
     requestAnimationFrame(draw);
   }
