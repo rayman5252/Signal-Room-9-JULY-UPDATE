@@ -376,7 +376,7 @@ function buildKeypad() {
     // To rotate the video each month, just replace the file matching
     // that month's number — no code changes needed.
     const monthNum = String(new Date().getMonth() + 1).padStart(2, '0');
-    const src = `assets/videos/${monthNum}.mp4`;
+    const src = `${monthNum}.mp4`;
 
     videoEl.style.display = 'block';
     videoFallback.style.display = 'none';
