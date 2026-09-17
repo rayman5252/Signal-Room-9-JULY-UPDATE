@@ -571,6 +571,111 @@
     <div class="stamp">CLASSIFIED · EYES ONLY</div>
   </footer>
 
-<script src="script.js"></script>
+<script>
+    (function(){
+          var css = ""
+                  + "#video-vault{max-width:980px;margin:0 auto;padding:8px 24px 40px;}"
+                  + "#video-vault .vault-shell{position:relative;border:1px solid var(--panel-edge);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.25)),var(--panel);padding:28px 22px;overflow:hidden;box-shadow:inset 0 0 40px rgba(0,0,0,0.6),0 0 30px rgba(209,56,44,0.06);}"
+                  + "#video-vault .vault-shell::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,0.02) 0px,rgba(255,255,255,0.02) 1px,transparent 1px,transparent 3px);pointer-events:none;}"
+                  + "#video-vault .vault-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px 24px;position:relative;z-index:1;}"
+                  + "#video-vault .vault-copy{max-width:560px;}"
+                  + "#video-vault .vault-copy h3{font-family:'Black Ops One','IBM Plex Mono',monospace;letter-spacing:2px;margin:0 0 8px;font-size:1.4rem;color:var(--paper);text-shadow:0 0 18px rgba(209,56,44,0.2);}"
+                  + "#video-vault .vault-copy p{margin:0;color:var(--muted);font-size:13px;line-height:1.6;letter-spacing:1px;}"
+                  + "#video-vault .vault-btn{position:relative;flex:0 0 auto;width:104px;height:104px;border:none;padding:0;border-radius:50%;cursor:pointer;background:radial-gradient(circle at 35% 28%,#ff8a7a 0%,#e5453a 22%,#b81f18 55%,#7a1109 100%);box-shadow:0 0 0 1px rgba(0,0,0,0.5),0 10px 24px rgba(0,0,0,0.55),0 0 34px rgba(209,56,44,0.5),inset 0 -8px 18px rgba(0,0,0,0.45);transition:transform .12s ease,box-shadow .2s ease,filter .2s ease;animation:vaultGlow 2.6s ease-in-out infinite;}"
+                  + "#video-vault .vault-btn::before{content:'';position:absolute;top:12%;left:20%;width:50%;height:36%;border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,255,255,0));filter:blur(1px);pointer-events:none;}"
+                  + "#video-vault .vault-btn:hover{transform:translateY(-2px) scale(1.03);filter:saturate(1.1);}"
+                  + "#video-vault .vault-btn:active{transform:translateY(1px) scale(0.98);}"
+                  + "#video-vault .vault-btn .btn-label{position:absolute;bottom:-24px;left:50%;transform:translateX(-50%);font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--signal-red);white-space:nowrap;text-shadow:0 0 8px rgba(209,56,44,0.6);}"
+                  + "@keyframes vaultGlow{0%,100%{box-shadow:0 0 0 1px rgba(0,0,0,0.5),0 10px 24px rgba(0,0,0,0.55),0 0 30px rgba(209,56,44,0.4),inset 0 -8px 18px rgba(0,0,0,0.45);}50%{box-shadow:0 0 0 1px rgba(0,0,0,0.5),0 10px 24px rgba(0,0,0,0.55),0 0 48px rgba(209,56,44,0.75),inset 0 -8px 18px rgba(0,0,0,0.45);}}"
+                  + "#video-vault .vault-body{position:relative;z-index:1;max-height:0;opacity:0;overflow:hidden;transition:max-height .6s ease,opacity .5s ease,margin-top .5s ease;margin-top:0;}"
+                  + "#video-vault.open .vault-body{max-height:6000px;opacity:1;margin-top:26px;}"
+                  + "#video-vault .vault-status{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--amber);margin-bottom:16px;border-top:1px dashed var(--panel-edge);padding-top:16px;}"
+                  + "#video-vault .vault-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;}"
+                  + "#video-vault .vault-card{border:1px solid var(--panel-edge);border-radius:8px;overflow:hidden;background:rgba(0,0,0,0.3);box-shadow:inset 0 0 24px rgba(0,0,0,0.5);}"
+                  + "#video-vault .vault-card .thumb{position:relative;aspect-ratio:16/9;}"
+                  + "#video-vault .vault-card iframe{width:100%;height:100%;border:0;display:block;}"
+                  + "#video-vault .vault-card .meta{padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;}"
+                  + "#video-vault .vault-card .meta .file-id{font-size:11px;letter-spacing:1px;color:var(--muted);}"
+                  + "#video-vault .vault-card .meta a{font-size:11px;letter-spacing:1px;color:var(--signal-red);text-decoration:none;border:1px solid var(--panel-edge);border-radius:999px;padding:4px 10px;}"
+                  + "#video-vault .vault-card .meta a:hover{color:var(--amber);border-color:var(--rust);}";
+      
+         var videos = [
+           { id: "AFazyDNIKJ0", label: "FILE 01" }
+               ];
+      
+         var cards = "";
+          for (var i = 0; i < videos.length; i++) {
+                  var v = videos[i];
+                  cards += ""
+                            + "<div class=" + JSON.stringify("vault-card") + ">"
+                            +   "<div class=" + JSON.stringify("thumb") + ">"
+                            +     "<iframe loading=" + JSON.stringify("lazy") + " allowfullscreen"
+                            +       " allow=" + JSON.stringify("accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture")
+                            +       " title=" + JSON.stringify("Vault Transmission " + v.label)
+                            +       " src=" + JSON.stringify("https://www.youtube-nocookie.com/embed/" + v.id) + ">"
+                            +     "</iframe>"
+                            +   "</div>"
+                            +   "<div class=" + JSON.stringify("meta") + ">"
+                            +     "<span class=" + JSON.stringify("file-id") + ">" + v.label + " \u00b7 REF " + v.id + "</span>"
+                            +     "<a target=" + JSON.stringify("_blank") + " rel=" + JSON.stringify("noopener")
+                            +       " href=" + JSON.stringify("https://www.youtube.com/watch?v=" + v.id) + ">OPEN \u2197</a>"
+                            +   "</div>"
+                            + "</div>";
+          }
+      
+         var markup = ""
+                 + "<div class=" + JSON.stringify("section-label") + ">The Secret Video Vault</div>"
+                 + "<div class=" + JSON.stringify("vault-shell") + ">"
+                 +   "<div class=" + JSON.stringify("vault-head") + ">"
+                 +     "<div class=" + JSON.stringify("vault-copy") + ">"
+                 +       "<h3>THE SECRET VIDEO VAULT</h3>"
+                 +       "<p>Encrypted playback bay. Authorized eyes only. Press the beacon to release the archived transmissions held in this vault.</p>"
+                 +     "</div>"
+                 +     "<button type=" + JSON.stringify("button") + " class=" + JSON.stringify("vault-btn") + " id=" + JSON.stringify("vault-trigger") + " aria-label=" + JSON.stringify("Open the Secret Video Vault") + ">"
+                 +       "<span class=" + JSON.stringify("btn-label") + ">Access</span>"
+                 +     "</button>"
+                 +   "</div>"
+                 +   "<div class=" + JSON.stringify("vault-body") + ">"
+                 +     "<div class=" + JSON.stringify("vault-status") + ">// VAULT UNSEALED \u00b7 STREAMS DECRYPTED</div>"
+                 +     "<div class=" + JSON.stringify("vault-grid") + ">" + cards + "</div>"
+                 +   "</div>"
+                 + "</div>";
+      
+         var style = document.createElement("style");
+          style.textContent = css;
+          document.head.appendChild(style);
+      
+         var section = document.createElement("section");
+          section.id = "video-vault";
+          section.innerHTML = markup;
+      
+             var anchor = null;
+          var labels = document.querySelectorAll(".section-label");
+          for (var j = 0; j < labels.length; j++) {
+                  if (labels[j].textContent.trim().toLowerCase() === "field intercepts") {
+                            anchor = labels[j].closest("section");
+                            break;
+                  }
+          }
+          if (anchor && anchor.parentNode) {
+                  anchor.parentNode.insertBefore(section, anchor.nextSibling);
+          } else {
+                  var footer = document.querySelector("footer");
+                  if (footer && footer.parentNode) {
+                            footer.parentNode.insertBefore(section, footer);
+                  } else {
+                            document.body.appendChild(section);
+                  }
+          }
+      
+         var trigger = section.querySelector("#vault-trigger");
+          if (trigger) {
+                  trigger.addEventListener("click", function () {
+                            section.classList.toggle("open");
+                  });
+          }
+    })();
+<</script>
+  <script src="script.js"></script>
 </body>
 </html>
