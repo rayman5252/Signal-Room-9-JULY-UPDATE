@@ -598,30 +598,31 @@
                   + "#video-vault .vault-card .meta .file-id{font-size:11px;letter-spacing:1px;color:var(--muted);}"
                   + "#video-vault .vault-card .meta a{font-size:11px;letter-spacing:1px;color:var(--signal-red);text-decoration:none;border:1px solid var(--panel-edge);border-radius:999px;padding:4px 10px;}"
                   + "#video-vault .vault-card .meta a:hover{color:var(--amber);border-color:var(--rust);}";
-      
-         var videos = [
-           { id: "AFazyDNIKJ0", label: "FILE 01" }
-               ];
-      
-         var cards = "";
-          for (var i = 0; i < videos.length; i++) {
-                  var v = videos[i];
-                  cards += ""
-                            + "<div class=" + JSON.stringify("vault-card") + ">"
-                            +   "<div class=" + JSON.stringify("thumb") + ">"
-                            +     "<iframe loading=" + JSON.stringify("lazy") + " allowfullscreen"
-                            +       " allow=" + JSON.stringify("accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture")
-                            +       " title=" + JSON.stringify("Vault Transmission " + v.label)
-                            +       " src=" + JSON.stringify("https://www.youtube-nocookie.com/embed/" + v.id) + ">"
-                            +     "</iframe>"
-                            +   "</div>"
-                            +   "<div class=" + JSON.stringify("meta") + ">"
-                            +     "<span class=" + JSON.stringify("file-id") + ">" + v.label + " \u00b7 REF " + v.id + "</span>"
-                            +     "<a target=" + JSON.stringify("_blank") + " rel=" + JSON.stringify("noopener")
-                            +       " href=" + JSON.stringify("https://www.youtube.com/watch?v=" + v.id) + ">OPEN \u2197</a>"
-                            +   "</div>"
-                            + "</div>";
-          }
+
+      css += ""
+      + "#video-vault .vault-grid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px;}"
+      + "#video-vault.open .vault-body{max-height:14000px;}"
+      + "#video-vault .vault-card.locked{border-style:dashed;border-color:var(--rust);}"
+      + "#video-vault .vault-card.locked .thumb{display:flex;align-items:center;justify-content:center;overflow:hidden;background-color:rgba(0,0,0,0.45);background-image:repeating-linear-gradient(45deg,rgba(209,56,44,0.06) 0px,rgba(209,56,44,0.06) 8px,transparent 8px,transparent 18px);}"
+      + "#video-vault .vault-card.locked .lock-text{position:relative;z-index:2;font-size:10px;line-height:1.6;letter-spacing:3px;text-transform:uppercase;text-align:center;padding:0 12px;color:var(--amber);text-shadow:0 0 10px rgba(209,161,61,0.45);animation:lockPulse 2.2s ease-in-out infinite;}"
+      + "#video-vault .vault-card.locked .lock-dot{display:inline-block;animation:lockPulse 1.2s ease-in-out infinite;}"
+      + "#video-vault .vault-card.locked .lock-dot.d2{animation-delay:0.2s;}"
+      + "#video-vault .vault-card.locked .lock-dot.d3{animation-delay:0.4s;}"
+      + "#video-vault .vault-card.locked .scan{position:absolute;left:0;right:0;top:0;height:30%;background:linear-gradient(180deg,rgba(209,161,61,0.16),rgba(209,161,61,0));animation:lockScan 3.6s linear infinite;pointer-events:none;z-index:1;}"
+      + "#video-vault .vault-card.locked .file-id{color:var(--rust);}"
+      + "#video-vault .vault-card.locked .locked-tag{font-size:11px;letter-spacing:1px;color:var(--muted);border:1px solid var(--panel-edge);border-radius:999px;padding:4px 10px;}"
+      + "@keyframes lockPulse{0%,100%{opacity:1;}50%{opacity:0.25;}}"
+      + "@keyframes lockScan{0%{transform:translateY(-110%);}100%{transform:translateY(360%);}}";
+      var vaultIds = ["AFazyDNIKJ0", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
+
+      var videos = [];
+      for (var n = 0; n < 16; n++) { var num = n + 1; videos.push({ id: vaultIds[n] || "", label: "FILE " + (num < 10 ? "0" + num : "" + num) }); }
+      function liveCard(v) { return "<div class=" + JSON.stringify("vault-card") + ">" + "<div class=" + JSON.stringify("thumb") + ">" + "<iframe loading=" + JSON.stringify("lazy") + " allowfullscreen allow=" + JSON.stringify("accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture") + " title=" + JSON.stringify("Vault Transmission " + v.label) + " src=" + JSON.stringify("https://www.youtube-nocookie.com/embed/" + v.id) + ">" + "</iframe>" + "</div>" + "<div class=" + JSON.stringify("meta") + ">" + "<span class=" + JSON.stringify("file-id") + ">" + v.label + " · REF " + v.id + "</span>" + "<a target=" + JSON.stringify("_blank") + " rel=" + JSON.stringify("noopener") + " href=" + JSON.stringify("https://www.youtube.com/watch?v=" + v.id) + ">OPEN ↗</a>" + "</div>" + "</div>"; }
+
+      function lockedCard(v) { return "<div class=" + JSON.stringify("vault-card locked") + ">" + "<div class=" + JSON.stringify("thumb") + ">" + "<div class=" + JSON.stringify("scan") + ">" + "</div>" + "<div class=" + JSON.stringify("lock-text") + ">AWAITING CODE ACCESS<span class=" + JSON.stringify("lock-dot") + ">.</span><span class=" + JSON.stringify("lock-dot d2") + ">.</span><span class=" + JSON.stringify("lock-dot d3") + ">.</span>" + "</div>" + "</div>" + "<div class=" + JSON.stringify("meta") + ">" + "<span class=" + JSON.stringify("file-id") + ">" + v.label + " · SEALED</span>" + "<span class=" + JSON.stringify("locked-tag") + ">LOCKED</span>" + "</div>" + "</div>"; }
+
+      var cards = "";
+      for (var i = 0; i < videos.length; i++) { var v = videos[i]; cards += v.id ? liveCard(v) : lockedCard(v); }
       
          var markup = ""
                  + "<div class=" + JSON.stringify("section-label") + ">The Secret Video Vault</div>"
