@@ -40,7 +40,7 @@
   #banner{position:absolute;left:0;right:0;top:12%;text-align:center;font-family:'Black Ops One',monospace;font-size:clamp(22px,4.5vw,46px);letter-spacing:.14em;color:var(--amber);text-shadow:0 0 18px #000;opacity:0;pointer-events:none}
   #banner.show{animation:ban 1.8s ease-out}
   @keyframes ban{0%{opacity:0;transform:scale(.9)}15%{opacity:1;transform:scale(1)}75%{opacity:1}100%{opacity:0}}
-  #side{width:310px;flex:none;display:flex;flex-direction:column;gap:8px;min-height:0}
+  #side{width:330px;flex:none;display:flex;flex-direction:column;gap:8px;min-height:0;overflow-y:auto}
   .box{background:var(--panel);border:1px solid var(--edge);border-radius:3px;padding:10px}
   .box h3{margin:0 0 6px;font-size:11px;letter-spacing:.16em;color:var(--muted);font-weight:500}
   #panel{min-height:150px}
@@ -49,12 +49,17 @@
   .row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
   .band{flex:1;min-width:70px;padding:7px 4px;border:1px solid var(--edge);background:#161b13;font-weight:600;letter-spacing:.06em;font-size:11px}
   .band.on{box-shadow:0 0 0 1px currentColor inset,0 0 10px currentColor}
-  #feed{flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;font-size:11.5px;line-height:1.5;min-height:80px}
-  #feed div{color:#aaa790;margin-top:4px}
+  #feed{flex:none;height:116px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;font-size:11.5px;line-height:1.4;padding:8px 10px}
+  #feed h3{margin:0 0 2px}
+  #feed .quip{color:#e6b86a;font-style:italic}
+  #feed .quip .tag{color:#d1382c;font-style:normal}
+  #feed div{color:#aaa790;margin-top:2px}
   #feed .tag{color:var(--muted)}
   #feed .hot{color:var(--amber)}
-  #build{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
-  .tb{flex:1;min-width:112px;background:var(--panel);border:1px solid var(--edge);border-radius:3px;padding:7px 8px;text-align:left;position:relative}
+  #build{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .tb{min-width:0;background:var(--panel);border:1px solid var(--edge);border-radius:3px;padding:6px 8px 6px 6px;text-align:left;position:relative;display:flex;align-items:center;gap:7px}
+  .tb .ti{width:34px;height:34px;object-fit:contain;flex:none;background:#0f130e;border:1px solid var(--edge);border-radius:2px}
+  .tb .tt{min-width:0}
   .tb b{display:block;font-size:11px;letter-spacing:.07em}
   .tb small{color:var(--amber)}
   .tb i{position:absolute;right:6px;top:5px;font-style:normal;color:var(--muted);font-size:10px}
@@ -62,7 +67,7 @@
   .tb.sel{border-color:var(--green);box-shadow:0 0 10px rgba(125,255,154,.25) inset}
   .tb:disabled{opacity:.45}
   .tb.locked small{color:var(--muted)}
-  .tb{min-width:98px}
+
   #overlay{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(5,7,6,.9);padding:16px}
   #overlay.on{display:flex}
   .card{max-width:620px;width:100%;max-height:92vh;overflow:auto;background:var(--panel);border:1px solid var(--edge);padding:26px 28px;position:relative}
@@ -84,7 +89,7 @@
     #main{flex-direction:column}
     #side{width:auto}
     #stage{min-height:0}
-    #feed{max-height:130px}
+    #feed{height:120px}
   }
 </style>
 </head>
@@ -112,11 +117,11 @@
   <div id="main">
     <div id="stage"><canvas id="c" width="960" height="600"></canvas><div id="crt"></div><div id="banner"></div></div>
     <aside id="side">
+      <div class="box" id="shop"><h3>BUILD · CLICK A TURRET, THEN A FREE CELL</h3><nav id="build"></nav></div>
       <div class="box" id="panel"></div>
-      <div class="box" id="feed"></div>
     </aside>
   </div>
-  <nav id="build"></nav>
+  <div class="box" id="feed"></div>
 </div>
 <div id="overlay"><div class="card" id="card"></div></div>
 
@@ -148,6 +153,8 @@ const TOWER_DEFS={
   railgun:{name:'RAILGUN',cost:210,range:340,rate:2.6,dmg:110,tune:false,rot:true,pierce:true,unlock:9,desc:'Fires a slug through everything lit in a line. Targets the toughest contact.'},
   flak:  {name:'FLAK PYLON',cost:150,range:125,rate:1.1,dmg:12,tune:false,pulse:true,unlock:14,desc:'Pulses a shockwave at everything in range, lit or not. Shreds swarms and cloaked contacts.'}
 };
+/* sprite draw size in px (a 60px cell): bigger guns read as bigger guns */
+const SPRITE_SIZE={dipole:90,dish:90,sentry:90,railgun:128,flak:90,beacon:62};
 const TOWER_ORDER=['dipole','dish','coil','burst','jammer','beacon','sentry','railgun','flak'];
 const isUnlocked=k=>G.wave>=((TOWER_DEFS[k].unlock||1)-1);
 /* recon drone: charges per wave grow with the waves. Flies the conduit; detonate to erase everything inside its blast ring, lit or not. */
@@ -179,8 +186,9 @@ const ART_FILES={
   alien_howler:'assets/alien_howler.png',alien_listener:'assets/alien_listener.png',
   relay:'assets/relay.png',map_bg:'assets/map_bg.jpg',title:'assets/title.jpg'
 };
+const ART_V='?v=4';   // bump when sprites change so browsers fetch the new art
 const ART={};
-for(const [k,src] of Object.entries(ART_FILES)){ const i=new Image(); i.onload=()=>{ ART[k]=i; }; i.src=src; }
+for(const [k,src] of Object.entries(ART_FILES)){ const i=new Image(); i.onload=()=>{ ART[k]=i; }; i.src=src+ART_V; }
 
 /* ---------- lore: filed one per cleared wave ---------- */
 const LORE=[
@@ -267,7 +275,7 @@ let bannerTimer=null;
 
 function resetGame(){
   Object.assign(G,{phase:'prep',wave:0,credits:DIFF[G.diff].credits,integrity:START_INTEGRITY,T:0,towers:[],aliens:[],fx:[],queue:[],waveT:0,
-    countdown:35,pingUntil:0,pingReadyAt:0,drone:{active:false,uses:0,d:0,x:0,y:0,ang:0},radar:0,sel:null,build:null,hover:null,nextId:1,cleared:false,kills:0,log:[],paused:false});
+    countdown:35,pingUntil:0,pingReadyAt:0,nextQuip:0,drone:{active:false,uses:0,d:0,x:0,y:0,ang:0},radar:0,sel:null,build:null,hover:null,nextId:1,cleared:false,kills:0,log:[],paused:false});
   feedClear(); feed(LORE_INTRO,true); G.log.push(LORE_INTRO);
   renderPanel(); renderBuild(); hud();
 }
@@ -356,6 +364,7 @@ function waveCleared(){
 function update(dt){
   if(G.phase==='title'||G.phase==='over') return;
   G.T+=dt;
+  if(G.wave>=1){ if(!G.nextQuip) G.nextQuip=G.T+35+Math.random()*25; else if(G.T>=G.nextQuip){ quip(); G.nextQuip=G.T+45+Math.random()*50; } }
   // radar sweep
   G.radar=(G.radar+TAU/SWEEP_PERIOD*dt)%TAU;
   // prep countdown / wave spawning
@@ -468,6 +477,29 @@ function showDroneCard(n){
   $('droneOk').onclick=()=>closeCard();
 }
 
+/* ---------- frontline chatter: a soldier with opinions ---------- */
+const QUIPS={
+  leak:["One just strolled past me and waved. WAVED.","Contact reached the room. Great. Wonderful. Love that for us.","Did we plan for that one to get through, or is this improv?","Something just walked into the relay like it owns the place."],
+  low:["We're down to the last of the walls. Whoever is in charge: any time now.","Integrity is a rumour at this point.","If this is the plan, I'd like to see the other plan.","I've seen better defences made of wet cardboard."],
+  fewTowers:["I count a handful of turrets. Is this a defence or a garden gnome collection?","Ma'am, sir, whoever: we have a LOT of empty ground and a LOT of enemies.","Thin line. Very thin. Almost not a line."],
+  richIdle:["There's a pile of credits just sitting there. Spend it or frame it.","Nobody's buying anything. Are we saving for retirement?","Cash in the bank, aliens at the gate. Priorities, people."],
+  good:["Everything's dying on schedule. Suspicious. Who's cooking the books?","Nice. Don't touch anything.","Is it just me, or is this going... well? I hate it.","Okay, somebody up there knows what they're doing. Weird."],
+  wave:["Another wave. Of course. Why would they ever stop.","Who the hell is running this circus? Do they have a licence?","Reports say the plan is 'wing it'. Reports are accurate.","Coffee's cold, turrets are warm, morale is a work in progress.","Whoever drew up this layout: I have notes. Many notes."],
+  prep:["Quiet. I don't trust quiet.","Break time. Somebody build something useful.","If anyone's reading this: more turrets. Please. Respectfully."]
+};
+let quipLast='';
+function quip(){
+  const hp=G.integrity/START_INTEGRITY; let pool;
+  if(G.T-G.lastLeakAt<6) pool=QUIPS.leak;
+  else if(hp<0.45) pool=QUIPS.low;
+  else if(G.phase==='wave'&&G.wave>=4&&G.towers.length<4+Math.floor(G.wave/2)) pool=QUIPS.fewTowers;
+  else if(G.credits>260&&G.phase==='wave') pool=QUIPS.richIdle;
+  else if(hp>0.9&&G.wave>=3) pool=Math.random()<0.6?QUIPS.good:QUIPS.wave;
+  else pool=G.phase==='prep'?QUIPS.prep:QUIPS.wave;
+  let t,tries=0; do{ t=pool[Math.floor(Math.random()*pool.length)]; }while(t===quipLast&&++tries<5); quipLast=t;
+  const f=$('feed'); const d=document.createElement('div'); d.className='quip'; d.innerHTML='<span class="tag">[FRONTLINE]</span> “'+t+'”'; f.appendChild(d); while(f.children.length>6) f.children[1].remove();
+}
+
 /* ---------- end states ---------- */
 function lose(){
   G.phase='over'; G.log.push(LORE_LOSS); localStorage.setItem('sr9.htf.best',Math.max(G.best,G.wave-1)); G.best=Math.max(G.best,G.wave-1);
@@ -537,7 +569,7 @@ function drawTower(tw,ghost){
   ctx.fillStyle='#0f130e'; ctx.strokeStyle='#2c3328'; ctx.lineWidth=1.5; ctx.fillRect(-24,-24,48,48); ctx.strokeRect(-24,-24,48,48);
   const sprite=ART['tower_'+tw.key];
   ctx.save(); if(d.rot) ctx.rotate(tw.ang);
-  if(sprite){ const s=54; ctx.drawImage(sprite,-s/2,-s/2,s,s); }
+  if(sprite){ const s=SPRITE_SIZE[tw.key]||54; ctx.drawImage(sprite,-s/2,-s/2,s,s); }
   else{
     ctx.strokeStyle=down?'#555':'#d9d3bf'; ctx.fillStyle='#1a1f17'; ctx.lineWidth=2;
     switch(tw.key){
@@ -643,7 +675,7 @@ function render(){
 function banner(t){ const b=$('banner'); b.textContent=t; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); }
 function feedClear(){ $('feed').innerHTML='<h3>TRANSMISSION LOG</h3>'; }
 function feed(text,hot){ const f=$('feed'); const d=document.createElement('div'); const m=text.match(/^(\[[^\]]+\])\s*(.*)$/);
-  d.innerHTML=m?`<span class="tag">${m[1]}</span> <span class="${hot?'hot':''}">${m[2]}</span>`:text; f.appendChild(d); while(f.children.length>7) f.children[1].remove(); }
+  d.innerHTML=m?`<span class="tag">${m[1]}</span> <span class="${hot?'hot':''}">${m[2]}</span>`:text; f.appendChild(d); while(f.children.length>6) f.children[1].remove(); }
 function hud(){
   $('credits').textContent=G.credits; $('wave').textContent=G.wave+'/'+TOTAL_WAVES;
   const pct=clamp(G.integrity/START_INTEGRITY,0,1); $('barFill').style.width=(pct*100)+'%'; $('barFill').style.background=pct>.5?'#7dff9a':pct>.25?'#d1a13d':'#d1382c';
@@ -668,7 +700,7 @@ function renderBuild(){
   const el=$('build'); el.innerHTML='';
   TOWER_ORDER.forEach((k,i)=>{ const d=TOWER_DEFS[k]; const b=document.createElement('button'); b.className='tb'+(G.build===k?' sel':''); b.dataset.k=k;
     const lock=!isUnlocked(k); if(lock) b.classList.add('locked');
-    b.innerHTML=`<i>${i+1}</i><b>${d.name}</b><small>${lock?'UNLOCKS WAVE '+d.unlock:d.cost+' CR'}</small>`; b.onclick=()=>selectBuild(k); el.appendChild(b); });
+    b.innerHTML=`<i>${i+1}</i><img class="ti" alt="" src="${ART_FILES['tower_'+k]?ART_FILES['tower_'+k]+ART_V:''}"><span class="tt"><b>${d.name}</b><small>${lock?'UNLOCKS WAVE '+d.unlock:d.cost+' CR'}</small></span>`; b.onclick=()=>selectBuild(k); el.appendChild(b); });
 }
 function selectBuild(k){ if(!isUnlocked(k)){ SFX.deny(); return; } if(G.credits<TOWER_DEFS[k].cost&&G.build!==k){ SFX.deny(); } G.build=G.build===k?null:k; G.sel=null; renderBuild(); renderPanel(); hud(); }
 function renderPanel(){
@@ -684,7 +716,7 @@ function renderPanel(){
     const d=TOWER_DEFS[G.build];
     p.innerHTML=`<h3>BUILD</h3><div class="name">${d.name}</div><p>${d.desc}</p><p style="color:#d1a13d">${d.cost} CR · range ${Math.round(d.range/CELL*10)/10} cells</p><p style="font-size:11px;color:#6c7266">Click a free cell to place. Esc to cancel.</p>`;
   }else{
-    p.innerHTML=`<h3>OPERATOR BRIEF</h3><p><b style="color:#d1a13d">1.</b> Contacts walk the conduit toward the room. Pick a turret below, click a free cell to build it. Click a turret to upgrade or sell it.</p>
+    p.innerHTML=`<h3>OPERATOR BRIEF</h3><p><b style="color:#d1a13d">1.</b> Contacts walk the conduit toward the room. Pick a turret from the list on the right, then click a free cell to build it. Click a built turret to upgrade or sell it.</p>
       <p><b style="color:#d1a13d">2.</b> You only see what the radar sweep, a beacon, a ping or the drone lights up. Turrets can only shoot lit contacts.</p>
       <p><b style="color:#d1a13d">3.</b> From wave ${DRONE.unlock}: launch the DRONE (D), then press D again to blast everything near it.</p>`;
   }
@@ -764,7 +796,7 @@ let bi=0; (function bootStep(){ $('bootText').textContent=bootLines[bi]; bi++; i
 feedClear(); renderBuild(); renderPanel(); hud(); requestAnimationFrame(frame);
 
 /* test/bot hook */
-window.HTF={DRONE,droneCharges,toggleDrone,detonateDrone,isUnlocked,TUNE,upgradeCost,G,update,placeTower,upgradeTower,tuneTower,startWave,ping,resetGame,genWave,sellTower,BLOCK,TOWER_DEFS,ALIEN_DEFS,posAt,PATH_LEN,CELL,COLS,ROWS,BK,detectable,TOTAL_WAVES};
+window.HTF={quip,QUIPS,DRONE,droneCharges,toggleDrone,detonateDrone,isUnlocked,TUNE,upgradeCost,G,update,placeTower,upgradeTower,tuneTower,startWave,ping,resetGame,genWave,sellTower,BLOCK,TOWER_DEFS,ALIEN_DEFS,posAt,PATH_LEN,CELL,COLS,ROWS,BK,detectable,TOTAL_WAVES};
 </script>
 </body>
 </html>
