@@ -190,6 +190,14 @@ const ART_V='?v=4';   // bump when sprites change so browsers fetch the new art
 const ART={};
 for(const [k,src] of Object.entries(ART_FILES)){ const i=new Image(); i.onload=()=>{ ART[k]=i; }; i.src=src+ART_V; }
 
+/* ---------- wave announcements (voice clips in assets/voice). Index = wave, value = clip number. Reorder freely. ---------- */
+const WAVE_VOICE=[1,2,3,4,5,6,7,8,9,10,2,3,4,5,6,7,8,9,10,11];
+let voiceEl=null;
+function announceWave(w){
+  const n=WAVE_VOICE[w-1]; if(!n||muted) return;
+  try{ if(voiceEl) voiceEl.pause(); voiceEl=new Audio('assets/voice/wave_'+String(n).padStart(2,'0')+'.mp3'+ART_V); voiceEl.volume=0.95; voiceEl.play().catch(()=>{}); }catch(e){}
+}
+
 /* ---------- lore: filed one per cleared wave ---------- */
 const LORE=[
  "[22:51:33Z] First contact at the outer ring. It moves as if it already knows the floor plan.",
@@ -246,8 +254,28 @@ function tone(f,d,type='square',v=0.04,slide=0,delay=0){
     o.connect(g).connect(AC.destination); o.start(t); o.stop(t+d+0.03);
   }catch(e){}
 }
+function SFX_synthShot(k){ SFX.shotSynth(k); }
+/* ---------- sampled sound effects (assets/sfx). Falls back to the synth beeps below if a file is missing. ---------- */
+const SFX_FILES={dipole:'shot_solo',dish:'shot_heavy',coil:'shot_coil',burst:'shot_burst',sentry:'shot_sentry',railgun:'shot_railgun',flak:'shot_flak',nuke:'drone_nuke'};
+const SFX_VOL={dipole:.5,dish:.85,coil:.5,burst:.7,sentry:.3,railgun:.85,flak:.6,nuke:1};
+const SFX_GAP={dipole:.06,dish:.1,coil:.08,burst:.1,sentry:.09,railgun:.15,flak:.15,nuke:1};
+const SFX_BUF={}, sfxLast={}; let sfxLoading=false;
+function loadSfx(){
+  if(sfxLoading) return; sfxLoading=true;
+  try{ AC=AC||new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
+  for(const [k,f] of Object.entries(SFX_FILES)){
+    fetch('assets/sfx/'+f+'.m4a'+ART_V).then(r=>r.ok?r.arrayBuffer():null).then(b=>b?AC.decodeAudioData(b):null).then(buf=>{ if(buf) SFX_BUF[k]=buf; }).catch(()=>{});
+  }
+}
+function playSample(k){
+  if(muted||!AC||!SFX_BUF[k]) return false;
+  const t=AC.currentTime; if(t-(sfxLast[k]||-9)<(SFX_GAP[k]||.08)) return true; sfxLast[k]=t;
+  const src=AC.createBufferSource(); src.buffer=SFX_BUF[k]; src.playbackRate.value=0.95+Math.random()*0.1;
+  const g=AC.createGain(); g.gain.value=SFX_VOL[k]||.6; src.connect(g).connect(AC.destination); src.start(); return true;
+}
 const SFX={
-  shot:k=>tone({dipole:820,dish:240,coil:520,burst:180,sentry:960,railgun:140,flak:260}[k]||600,(k==='dish'||k==='railgun')?0.28:0.09,k==='coil'?'sawtooth':'square',0.025,-300),
+  shot:k=>{ if(!playSample(k)) SFX_synthShot(k); },
+  shotSynth:k=>tone({dipole:820,dish:240,coil:520,burst:180,sentry:960,railgun:140,flak:260}[k]||600,(k==='dish'||k==='railgun')?0.28:0.09,k==='coil'?'sawtooth':'square',0.025,-300),
   kill:()=>tone(300,0.14,'triangle',0.05,-180),
   leak:()=>{ tone(110,0.4,'sawtooth',0.09,-60); },
   build:()=>{ tone(330,0.08,'triangle',0.05); tone(495,0.1,'triangle',0.05,0,0.08); },
@@ -259,7 +287,7 @@ const SFX={
   howl:()=>tone(800,0.5,'sawtooth',0.05,-500),
   deny:()=>tone(120,0.12,'square',0.04),
   drone:()=>{ tone(520,0.25,'triangle',0.04,400); tone(780,0.2,'triangle',0.03,300,0.12); },
-  nuke:()=>{ tone(70,1.4,'sawtooth',0.12,-40); tone(140,1.0,'square',0.07,-90); tone(900,0.5,'sine',0.05,-800); }
+  nuke:()=>{ if(playSample('nuke')) return; tone(70,1.4,'sawtooth',0.12,-40); tone(140,1.0,'square',0.07,-90); tone(900,0.5,'sine',0.05,-800); }
 };
 
 /* ======================= game state ======================= */
@@ -345,7 +373,7 @@ function startWave(){
   if(G.phase!=='prep'||G.wave>=TOTAL_WAVES) return false;
   if(G.countdown>1) G.credits+=Math.floor(G.countdown);      // early-send bonus
   G.drone.uses=0; G.wave++; G.hpMul=(1+TUNE.hpSlope*(G.wave-1)+TUNE.hpQuad*(G.wave-1)*(G.wave-1))*DIFF[G.diff].hp; G.queue=genWave(G.wave); G.waveT=0; G.phase='wave'; G.countdown=0;
-  banner(G.wave===TOTAL_WAVES?'THE LISTENER IS COMING':'WAVE '+G.wave+' INCOMING'); SFX.wave(); hud(); renderBuild();
+  banner(G.wave===TOTAL_WAVES?'THE LISTENER IS COMING':'WAVE '+G.wave+' INCOMING'); SFX.wave(); announceWave(G.wave); hud(); renderBuild();
   return true;
 }
 function waveCleared(){
@@ -742,7 +770,7 @@ function showTitle(){
     <div class="row" id="diffRow" style="margin:0 0 6px">${Object.keys(DIFF).map(k=>`<button class="band ${G.diff===k?'on':''}" data-d="${k}" style="color:#d9d3bf">${DIFF[k].name}<br><span style="color:#6c7266;font-size:10px">${DIFF[k].note}</span></button>`).join('')}</div>
     <button class="btn hot" id="begin">BEGIN WATCH</button>`);
   document.querySelectorAll('#diffRow .band').forEach(b=>b.onclick=()=>{ G.diff=b.dataset.d; localStorage.setItem('sr9.htf.diff',G.diff); document.querySelectorAll('#diffRow .band').forEach(x=>x.classList.toggle('on',x===b)); });
-  $('begin').onclick=()=>{ closeCard(); resetGame(); if(AC&&AC.state==='suspended') AC.resume(); tone(220,0.3,'triangle',0.05,100); };
+  $('begin').onclick=()=>{ closeCard(); resetGame(); loadSfx(); if(AC&&AC.state==='suspended') AC.resume(); tone(220,0.3,'triangle',0.05,100); };
 }
 
 /* ======================= input ======================= */
@@ -766,7 +794,7 @@ function togglePause(){ if($('overlay').classList.contains('on')) return; G.paus
 $('bGo').onclick=()=>startWave(); $('bPing').onclick=()=>ping(); $('bDrone').onclick=()=>toggleDrone();
 $('bSpeed').onclick=()=>{ G.speed=G.speed===1?2:G.speed===2?3:1; hud(); };
 $('bPause').onclick=togglePause; $('bLog').onclick=()=>{ if($('overlay').classList.contains('on')) closeCard(); else showLog(); };
-$('bMute').onclick=()=>{ muted=!muted; hud(); };
+$('bMute').onclick=()=>{ muted=!muted; if(muted&&voiceEl) voiceEl.pause(); hud(); };
 window.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT') return; const k=e.key.toLowerCase();
   if(G.phase==='title') return;
@@ -775,7 +803,7 @@ window.addEventListener('keydown',e=>{
   if(k>='1'&&k<='9'){ selectBuild(TOWER_ORDER[+k-1]); return; }
   if(k==='escape'){ G.build=null; G.sel=null; renderBuild(); renderPanel(); }
   else if(k===' '){ e.preventDefault(); startWave(); }
-  else if(k==='r') ping(); else if(k==='d') toggleDrone(); else if(k==='p') togglePause(); else if(k==='f'){ G.speed=G.speed===1?2:G.speed===2?3:1; hud(); } else if(k==='m'){ muted=!muted; hud(); }
+  else if(k==='r') ping(); else if(k==='d') toggleDrone(); else if(k==='p') togglePause(); else if(k==='f'){ G.speed=G.speed===1?2:G.speed===2?3:1; hud(); } else if(k==='m'){ muted=!muted; if(muted&&voiceEl) voiceEl.pause(); hud(); }
   else if(G.sel){
     if(k==='u'){ if(upgradeTower(G.sel)){ renderPanel(); hud(); } }
     else if(k==='x'||k==='delete'||k==='backspace'){ sellTower(G.sel); renderPanel(); hud(); }
