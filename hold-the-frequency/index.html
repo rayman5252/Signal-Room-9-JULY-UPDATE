@@ -373,7 +373,7 @@ function startWave(){
   if(G.phase!=='prep'||G.wave>=TOTAL_WAVES) return false;
   if(G.countdown>1) G.credits+=Math.floor(G.countdown);      // early-send bonus
   G.drone.uses=0; G.wave++; G.hpMul=(1+TUNE.hpSlope*(G.wave-1)+TUNE.hpQuad*(G.wave-1)*(G.wave-1))*DIFF[G.diff].hp; G.queue=genWave(G.wave); G.waveT=0; G.phase='wave'; G.countdown=0;
-  banner(G.wave===TOTAL_WAVES?'THE LISTENER IS COMING':'WAVE '+G.wave+' INCOMING'); SFX.wave(); announceWave(G.wave); hud(); renderBuild();
+  banner(G.wave===TOTAL_WAVES?'THE LISTENER IS COMING':'WAVE '+G.wave+' INCOMING'); $('banner').style.color=`hsl(${Math.round(190+(G.wave-1)*9)%360},80%,62%)`; SFX.wave(); announceWave(G.wave); hud(); renderBuild();
   return true;
 }
 function waveCleared(){
@@ -550,17 +550,49 @@ function win(){
 /* ======================= rendering ======================= */
 function glow(col,blur){ ctx.shadowColor=col; ctx.shadowBlur=blur; }
 function unglow(){ ctx.shadowBlur=0; }
+/* ---------- per-wave atmosphere: the whole field shifts hue as the alert level climbs (cool teal -> violet -> red) ---------- */
+let themeH=190, themeT=performance.now();
+const themeTarget=()=>190+Math.max(0,Math.min(TOTAL_WAVES,G.wave)-1)*9;
+function updateTheme(){
+  const now=performance.now(), dt=Math.min(0.1,(now-themeT)/1000); themeT=now;
+  const tgt=G.phase==='title'?190:themeTarget(); themeH+=(tgt-themeH)*Math.min(1,dt*1.6);
+}
+const th=(a,l=55,sat=75)=>`hsla(${Math.round(themeH)%360},${sat}%,${l}%,${a})`;
+const ALERTS=[[1,'CALM'],[4,'WATCH'],[8,'ELEVATED'],[12,'HIGH'],[16,'SEVERE'],[19,'CRITICAL']];
+const alertName=w=>{ let n=ALERTS[0][1]; for(const [from,name] of ALERTS) if(w>=from) n=name; return n; };
+function drawFieldLights(){
+  const t=G.T, hot=G.phase==='wave'?1:0.55;
+  // running lights chase down both edges of the conduit
+  for(let d=0; d<PATH_LEN; d+=46){
+    const p=posAt(d), nx=Math.cos(p.ang+Math.PI/2), ny=Math.sin(p.ang+Math.PI/2);
+    const k=Math.pow((Math.sin(t*2.6-d/64)+1)/2,3);
+    ctx.fillStyle=th(0.10+0.7*k*hot,62,85);
+    for(const sgn of [-1,1]){ ctx.beginPath(); ctx.arc(p.x+nx*19*sgn,p.y+ny*19*sgn,2.1,0,TAU); ctx.fill(); }
+  }
+  // emergency beacons in the four corners
+  const cs=[[16,16],[W-16,16],[16,H-16],[W-16,H-16]];
+  cs.forEach(([x,y],i)=>{ const k=0.5+0.5*Math.sin(t*(G.phase==='wave'?4.2:1.6)+i*1.6);
+    const g=ctx.createRadialGradient(x,y,0,x,y,74*(0.7+0.5*k)); g.addColorStop(0,th(0.55*k*hot,62,90)); g.addColorStop(1,th(0,50,80));
+    ctx.fillStyle=g; ctx.fillRect(x-80,y-80,160,160); ctx.fillStyle=th(0.9,70,95); ctx.beginPath(); ctx.arc(x,y,3,0,TAU); ctx.fill(); });
+  // slow pulse ring around the relay
+  const r=104+6*Math.sin(t*1.7); ctx.strokeStyle=th(0.16+0.1*Math.sin(t*1.7),60,85); ctx.lineWidth=2; ctx.beginPath(); ctx.arc(CX,CY,r,0,TAU); ctx.stroke();
+  // last wave: the whole room breathes red
+  if(G.wave>=TOTAL_WAVES&&G.phase!=='over'){ ctx.fillStyle='rgba(209,56,44,'+(0.05+0.05*Math.sin(t*3))+')'; ctx.fillRect(0,0,W,H); }
+}
 function drawMap(){
   if(ART.map_bg){ ctx.globalAlpha=0.9; ctx.drawImage(ART.map_bg,0,0,W,H); ctx.globalAlpha=1; }
   else{ ctx.fillStyle='#0a0d0b'; ctx.fillRect(0,0,W,H); }
+  // wave colour wash: recolours the floor but keeps its light/dark detail
+  ctx.globalCompositeOperation='color'; ctx.fillStyle=th(1,40,60); ctx.globalAlpha=0.42; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
   // grid
-  ctx.strokeStyle='rgba(125,255,154,0.05)'; ctx.lineWidth=1; ctx.beginPath();
+  ctx.strokeStyle=th(0.07,60,80); ctx.lineWidth=1; ctx.beginPath();
   for(let c=0;c<=COLS;c++){ ctx.moveTo(c*CELL+.5,0); ctx.lineTo(c*CELL+.5,H); } for(let r=0;r<=ROWS;r++){ ctx.moveTo(0,r*CELL+.5); ctx.lineTo(W,r*CELL+.5); } ctx.stroke();
   // conduit
   ctx.lineCap='round'; ctx.lineJoin='round';
   ctx.strokeStyle='rgba(122,53,36,0.55)'; ctx.lineWidth=40; ctx.beginPath(); WP.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
   ctx.strokeStyle='rgba(20,14,10,0.9)'; ctx.lineWidth=32; ctx.beginPath(); WP.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
-  ctx.strokeStyle='rgba(209,161,61,0.18)'; ctx.lineWidth=2; ctx.setLineDash([10,14]); ctx.lineDashOffset=-G.T*18; ctx.beginPath(); WP.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle=th(0.4,60,85); ctx.lineWidth=2; ctx.setLineDash([10,14]); ctx.lineDashOffset=-G.T*18; ctx.beginPath(); WP.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke(); ctx.setLineDash([]);
+  drawFieldLights();
   // buildable dots
   ctx.fillStyle='rgba(217,211,191,0.07)';
   for(let c=0;c<COLS;c++) for(let r=0;r<ROWS;r++) if(!BLOCK.has(c+','+r)) { ctx.beginPath(); ctx.arc((c+.5)*CELL,(r+.5)*CELL,1.6,0,TAU); ctx.fill(); }
@@ -614,6 +646,24 @@ function drawTower(tw,ghost){
   }
   ctx.restore();
   // band ring
+  // animated accent lights (drawn over the art, never changing it)
+  { const t=G.T, ph=tw.id*1.7, idle=down?'#d1382c':tw.flash>0?'#ffffff':'#7fe9ff';
+    if(!ghost){
+      for(let i=0;i<4;i++){ const on=down?Math.sin(t*9+i)>0:Math.sin(t*3.1+ph+i*1.57)>-0.15; if(!on) continue;
+        const x=(i%2?1:-1)*21, y=(i<2?-1:1)*21; ctx.fillStyle=idle; ctx.shadowColor=idle; ctx.shadowBlur=7; ctx.beginPath(); ctx.arc(x,y,1.9,0,TAU); ctx.fill(); }
+      ctx.shadowBlur=0;
+      if(tw.flash>0){ const g=ctx.createRadialGradient(0,0,4,0,0,38); g.addColorStop(0,th(0.35,70,90)); g.addColorStop(1,th(0,60,80)); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,38,0,TAU); ctx.fill(); }
+      if(!down){
+        const k=tw.key, fl=tw.flash>0, glw=(x,y,r,c0,c1)=>{ const g=ctx.createRadialGradient(x,y,0,x,y,r); g.addColorStop(0,c0); g.addColorStop(1,c1); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,TAU); ctx.fill(); };
+        if(k==='dipole'||k==='dish'||k==='sentry'){ if(fl){ ctx.save(); ctx.rotate(tw.ang); const mx={dipole:25,dish:38,sentry:27}[k]; glw(mx,0,9+Math.random()*5,'rgba(255,240,190,.95)','rgba(255,150,60,0)'); ctx.restore(); } }
+        else if(k==='railgun'){ ctx.save(); ctx.rotate(tw.ang); const ch=clamp(1-tw.cd/Math.max(0.1,tw.rate),0,1); glw(49,0,6+12*ch,'rgba(190,245,255,'+(0.25+0.7*ch)+')','rgba(60,170,255,0)'); ctx.fillStyle='rgba(120,230,255,'+(0.25+0.6*ch)+')'; ctx.fillRect(-4,-2,50*ch,4); ctx.restore(); }
+        else if(k==='flak'){ const pr=14+5*Math.sin(t*4+ph); ctx.strokeStyle='rgba(150,240,255,'+(fl?0.9:0.35)+')'; ctx.lineWidth=fl?3:1.5; ctx.beginPath(); ctx.arc(0,0,pr+(fl?8:0),0,TAU); ctx.stroke(); glw(0,0,13+3*Math.sin(t*5+ph),'rgba(255,255,255,.55)','rgba(120,220,255,0)'); }
+        else if(k==='coil'){ if(Math.sin(t*23+ph)>0.9||fl){ ctx.strokeStyle='rgba(170,240,255,.9)'; ctx.lineWidth=1.3; for(let j=0;j<3;j++){ const a=Math.random()*TAU; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(a)*7+Math.random()*3,Math.sin(a)*7); ctx.lineTo(Math.cos(a)*15,Math.sin(a)*15+Math.random()*4); ctx.stroke(); } } }
+        else if(k==='jammer'){ for(let j=0;j<2;j++){ const q=((t*0.8+ph+j*0.5)%1); ctx.strokeStyle=th(0.55*(1-q),65,85); ctx.lineWidth=1.6; ctx.beginPath(); ctx.arc(0,0,8+q*20,0,TAU); ctx.stroke(); } }
+        else if(k==='beacon'){ ctx.save(); ctx.rotate(t*2.4+ph); const g=ctx.createLinearGradient(0,0,28,0); g.addColorStop(0,'rgba(140,240,255,.0)'); g.addColorStop(1,'rgba(140,240,255,.7)'); ctx.strokeStyle=g; ctx.lineWidth=2.2; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(28,0); ctx.stroke(); ctx.fillStyle='rgba(210,252,255,.95)'; ctx.beginPath(); ctx.arc(28,0,2.4,0,TAU); ctx.fill(); ctx.restore(); }
+      }
+    }
+  }
   // level pips
   ctx.fillStyle='#d1a13d'; for(let i=0;i<tw.level;i++) ctx.fillRect(-14+i*8,19,5,3);
   if(retune){ ctx.strokeStyle='#d9d3bf'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(0,0,27,-Math.PI/2,-Math.PI/2+TAU*(1-tw.retune/1.2)); ctx.stroke(); }
@@ -690,6 +740,7 @@ function render(){
   const dpr=Math.min(2,window.devicePixelRatio||1), cv=$('c'); const tw=Math.round(W*dpr);
   if(cv.width!==tw){ cv.width=tw; cv.height=Math.round(H*dpr); }
   ctx.setTransform(cv.width/W,0,0,cv.height/H,0,0);
+  updateTheme(); $('stage').style.borderColor=th(0.55,50,70);
   drawMap(); drawRelay(); drawSweep();
   for(const t of G.towers) drawTower(t);
   const sorted=[...G.aliens].sort((a,b)=>a.y-b.y); for(const a of sorted) drawAlien(a);
@@ -697,6 +748,7 @@ function render(){
   // ping cooldown/legend in canvas corner
   ctx.fillStyle='rgba(217,211,191,.45)'; ctx.font='500 10px IBM Plex Mono, monospace'; ctx.textAlign='left';
   ctx.fillText('SWEEP '+Math.round(G.radar/TAU*360)+'°',10,H-10);
+  if(G.phase!=='title'){ ctx.fillStyle=th(0.9,68,88); ctx.font='600 11px IBM Plex Mono, monospace'; ctx.textAlign='right'; ctx.fillText('ALERT LEVEL: '+alertName(Math.max(1,G.wave))+'   SECTOR '+String(Math.max(1,G.wave)).padStart(2,'0'),W-12,H-10); }
 }
 
 /* ======================= UI ======================= */
