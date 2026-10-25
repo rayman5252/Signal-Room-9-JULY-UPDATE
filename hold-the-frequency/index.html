@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HOLD THE FREQUENCY — Signal Room 9</title>
+<meta name="description" content="A tower defense from Signal Room 9. Tune your antennas to the right frequency, watch the radar sweep, and hold the line.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0d0b; --panel:#12160f; --edge:#23281f; --rust:#7a3524; --red:#d1382c; --amber:#d1a13d;
+    --paper:#d9d3bf; --muted:#6c7266; --green:#7dff9a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:13px;overflow:hidden}
+  button{font-family:inherit;color:inherit;cursor:pointer}
+  #app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:1500px;margin:0 auto;padding:8px 10px;gap:8px}
+  #hud{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--edge);padding:6px 10px;border-radius:3px}
+  #hud h1{font-family:'Black Ops One','IBM Plex Mono',monospace;font-weight:400;font-size:15px;letter-spacing:.12em;margin:0;color:var(--paper)}
+  #hud h1 span{color:var(--red)}
+  .stat{display:flex;flex-direction:column;line-height:1.15}
+  .stat small{color:var(--muted);font-size:10px;letter-spacing:.14em}
+  .stat b{font-size:15px;font-weight:600}
+  #bar{width:120px;height:8px;background:#1a1f17;border:1px solid var(--edge)}
+  #bar i{display:block;height:100%;background:var(--green);transition:width .2s,background .2s}
+  .grow{flex:1}
+  .btn{background:#161b13;border:1px solid var(--edge);padding:6px 10px;letter-spacing:.08em;font-size:11px;border-radius:2px}
+  .btn:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
+  .btn:disabled{opacity:.4;cursor:default}
+  .btn.hot{border-color:var(--red);color:var(--red)}
+  #main{display:flex;gap:8px;flex:1;min-height:0}
+  #stage{position:relative;flex:1;min-width:0;display:flex;align-items:center;justify-content:center;background:#050706;border:1px solid var(--edge);border-radius:3px;overflow:hidden}
+  #c{display:block;max-width:100%;max-height:100%;aspect-ratio:16/10;width:100%;height:auto;touch-action:none}
+  #crt{position:absolute;inset:0;pointer-events:none;background:
+      repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px),
+      radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.55) 100%);mix-blend-mode:multiply;animation:flick 6s infinite}
+  @keyframes flick{0%,100%{opacity:1}47%{opacity:.96}50%{opacity:.88}53%{opacity:.97}}
+  #banner{position:absolute;left:0;right:0;top:12%;text-align:center;font-family:'Black Ops One',monospace;font-size:clamp(22px,4.5vw,46px);letter-spacing:.14em;color:var(--amber);text-shadow:0 0 18px #000;opacity:0;pointer-events:none}
+  #banner.show{animation:ban 1.8s ease-out}
+  @keyframes ban{0%{opacity:0;transform:scale(.9)}15%{opacity:1;transform:scale(1)}75%{opacity:1}100%{opacity:0}}
+  #side{width:310px;flex:none;display:flex;flex-direction:column;gap:8px;min-height:0}
+  .box{background:var(--panel);border:1px solid var(--edge);border-radius:3px;padding:10px}
+  .box h3{margin:0 0 6px;font-size:11px;letter-spacing:.16em;color:var(--muted);font-weight:500}
+  #panel{min-height:150px}
+  #panel .name{font-family:'Black Ops One',monospace;letter-spacing:.08em;font-size:15px}
+  #panel p{margin:6px 0;line-height:1.45;color:#b9b4a0;font-size:12px}
+  .row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .band{flex:1;min-width:70px;padding:7px 4px;border:1px solid var(--edge);background:#161b13;font-weight:600;letter-spacing:.06em;font-size:11px}
+  .band.on{box-shadow:0 0 0 1px currentColor inset,0 0 10px currentColor}
+  #feed{flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;font-size:11.5px;line-height:1.5;min-height:80px}
+  #feed div{color:#aaa790;margin-top:4px}
+  #feed .tag{color:var(--muted)}
+  #feed .hot{color:var(--amber)}
+  #build{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+  .tb{flex:1;min-width:112px;background:var(--panel);border:1px solid var(--edge);border-radius:3px;padding:7px 8px;text-align:left;position:relative}
+  .tb b{display:block;font-size:11px;letter-spacing:.07em}
+  .tb small{color:var(--amber)}
+  .tb i{position:absolute;right:6px;top:5px;font-style:normal;color:var(--muted);font-size:10px}
+  .tb:hover:not(:disabled){border-color:var(--amber)}
+  .tb.sel{border-color:var(--green);box-shadow:0 0 10px rgba(125,255,154,.25) inset}
+  .tb:disabled{opacity:.45}
+  #overlay{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(5,7,6,.9);padding:16px}
+  #overlay.on{display:flex}
+  .card{max-width:620px;width:100%;max-height:92vh;overflow:auto;background:var(--panel);border:1px solid var(--edge);padding:26px 28px;position:relative}
+  .card h2{font-family:'Black Ops One',monospace;font-weight:400;letter-spacing:.14em;font-size:26px;margin:0 0 4px}
+  .card h2 span{color:var(--red)}
+  .card .sub{color:var(--muted);letter-spacing:.14em;font-size:11px;margin-bottom:14px}
+  .card p,.card li{line-height:1.6;color:#c4bfa9}
+  .card ul{padding-left:18px;margin:8px 0 18px}
+  .card .btn{padding:11px 22px;font-size:13px}
+  .term{background:#0b0e0a;border:1px solid var(--edge);padding:12px;font-size:12px;line-height:1.6;max-height:260px;overflow:auto;margin:10px 0}
+  .term div{margin:4px 0}.term .tag{color:var(--muted)}
+  .term .nw{color:var(--green)}
+  #boot{position:fixed;inset:0;z-index:20;background:#000;display:flex;align-items:center;justify-content:center;font-size:13px;letter-spacing:.1em;color:var(--green);transition:opacity .6s}
+  #boot.off{opacity:0;pointer-events:none}
+  .code{font-family:'Black Ops One',monospace;font-size:34px;letter-spacing:.3em;color:var(--amber);text-align:center;margin:10px 0;text-shadow:0 0 14px rgba(209,161,61,.5)}
+  @media (max-width:900px){
+    html,body{overflow:auto}
+    #app{height:auto;min-height:100dvh}
+    #main{flex-direction:column}
+    #side{width:auto}
+    #stage{min-height:0}
+    #feed{max-height:130px}
+  }
+</style>
+</head>
+<body>
+<div id="boot"><div id="bootText">ESTABLISHING SECURE LINK…</div></div>
+
+<div id="app">
+  <header id="hud">
+    <h1>HOLD THE <span>FREQUENCY</span></h1>
+    <div class="stat"><small>INTEGRITY</small><div id="bar"><i id="barFill"></i></div></div>
+    <div class="stat"><small>CREDITS</small><b id="credits">0</b></div>
+    <div class="stat"><small>WAVE</small><b id="wave">0/20</b></div>
+    <div class="stat"><small>NEXT</small><b id="next">—</b></div>
+    <div class="stat" title="Intercepted forecast: band mix of the next wave"><small>FORECAST</small><div id="fc" style="display:flex;gap:2px;width:96px;height:14px;margin-top:2px"></div></div>
+    <div class="grow"></div>
+    <button class="btn" id="bPing" title="Light the whole map for a moment (R)">PING <span id="pingCd"></span></button>
+    <button class="btn hot" id="bGo" title="Send the next wave now (Space)">SEND WAVE</button>
+    <button class="btn" id="bSpeed" title="Speed (F)">1×</button>
+    <button class="btn" id="bPause" title="Pause (P)">PAUSE</button>
+    <button class="btn" id="bLog" title="Transmission log (L)">LOG</button>
+    <button class="btn" id="bMute" title="Sound (M)">SND</button>
+    <a class="btn" href="../" title="Back to Signal Room 9" style="text-decoration:none;display:inline-flex;align-items:center">EXIT</a>
+  </header>
+  <div id="main">
+    <div id="stage"><canvas id="c" width="960" height="600"></canvas><div id="crt"></div><div id="banner"></div></div>
+    <aside id="side">
+      <div class="box" id="panel"></div>
+      <div class="box" id="feed"></div>
+    </aside>
+  </div>
+  <nav id="build"></nav>
+</div>
+<div id="overlay"><div class="card" id="card"></div></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   HOLD THE FREQUENCY — a Signal Room 9 tower defense
+   - Frequency tuning: aliens broadcast on band A/B/C. Match your tower's dial = x2, mismatch = x0.5.
+   - Radar sweep: you only see (and can only shoot) what the sweep, a beacon, a ping or contact lights up.
+   - Lore: every cleared wave files a transmission-log entry. Hold all 20 to find out why.
+   Art: every sprite loads from assets/*.png when present; otherwise the vector art built in below is used.
+   ===================================================================== */
+const W=960,H=600,CELL=60,COLS=16,ROWS=10,CX=480,CY=300,TAU=Math.PI*2;
+const TOTAL_WAVES=20, START_INTEGRITY=20;
+const BANDS={A:{k:'A',name:'ALPHA',color:'#d1382c',rgb:'209,56,44'},B:{k:'B',name:'BRAVO',color:'#d1a13d',rgb:'209,161,61'},C:{k:'C',name:'CHARLIE',color:'#7dff9a',rgb:'125,255,154'}};
+const BK=['A','B','C'];
+const MATCH=2.0, MISMATCH=0.5;
+const SWEEP_PERIOD=4.2, WEDGE=1.9, GHOST=1.2, CONTACT=62, CONTACT_REVEAL=44, PING_CD=26, PING_LEN=2.4;
+
+const TOWER_DEFS={
+  dipole:{name:'DIPOLE ANTENNA',cost:50,range:150,rate:0.42,dmg:7,tune:true,rot:true,desc:'Cheap and quick. A single-target antenna: the workhorse of any watch.'},
+  dish:  {name:'DISH ARRAY',cost:95,range:270,rate:1.5,dmg:34,tune:true,rot:true,desc:'Long range, slow, heavy. Great against big contacts on a matching band.'},
+  coil:  {name:'ARC COIL',cost:110,range:132,rate:0.85,dmg:12,chain:2,tune:true,desc:'Short-range lightning that jumps to two more contacts.'},
+  burst: {name:'BURST EMITTER',cost:125,range:175,rate:1.35,dmg:20,splash:72,tune:true,rot:true,desc:'Lobs a pulse that damages everything around the impact, lit or not.'},
+  jammer:{name:'JAMMER',cost:70,range:142,slow:0.5,tune:false,desc:'No damage. Drags every contact in range to a crawl, whatever their band.'},
+  beacon:{name:'RADAR BEACON',cost:80,range:190,tune:false,desc:'Permanently lights its area and exposes cloaked contacts. Does not shoot.'}
+};
+const TOWER_ORDER=['dipole','dish','coil','burst','jammer','beacon'];
+
+const ALIEN_DEFS={
+  drifter: {name:'DRIFTER',hp:36,spd:56,reward:6,r:11,leak:1},
+  skitter: {name:'SKITTER',hp:22,spd:108,reward:5,r:8,leak:1},
+  hulk:    {name:'HULK',hp:200,spd:36,reward:16,r:16,leak:3},
+  hopper:  {name:'HOPPER',hp:58,spd:62,reward:9,r:10,leak:1,hop:3.0},
+  shade:   {name:'SHADE',hp:50,spd:66,reward:10,r:10,leak:2,cloak:true},
+  splitter:{name:'SPLITTER',hp:95,spd:50,reward:12,r:13,leak:2,split:2},
+  howler:  {name:'HOWLER',hp:85,spd:48,reward:14,r:12,leak:2,howl:6.5},
+  listener:{name:'THE LISTENER',hp:3200,spd:26,reward:140,r:27,leak:99,hop:5,boss:true}
+};
+const TUNE={hpSlope:0.6,hpQuad:0.06,budgetBase:5,budgetLin:4.2,budgetQuad:0.2,rewardGrow:0.04,waveBonus:20,waveBonusLin:3,upgradeMul:0.75,sellBack:0.7,bossHp:2};
+const DIFF={rookie:{name:'ROOKIE',hp:0.72,credits:240,note:'Softer contacts, extra starting credits.'},standard:{name:'STANDARD',hp:1,credits:170,note:'The watch as intended.'},veteran:{name:'VETERAN',hp:1.22,credits:150,note:'Tougher contacts. Tune fast.'}};
+const UNLOCK={drifter:1,skitter:2,hulk:3,hopper:5,shade:7,splitter:8,howler:10};
+const WCOST={drifter:1,skitter:.8,hulk:4,hopper:1.6,shade:2,splitter:2.4,howler:3};
+
+/* ---------- art manifest: drop PNGs into assets/ with these names (see FAL PROMPT PACK.md) ---------- */
+const ART_FILES={
+  tower_dipole:'assets/tower_dipole.png',tower_dish:'assets/tower_dish.png',tower_coil:'assets/tower_coil.png',
+  tower_burst:'assets/tower_burst.png',tower_jammer:'assets/tower_jammer.png',tower_beacon:'assets/tower_beacon.png',
+  alien_drifter:'assets/alien_drifter.png',alien_skitter:'assets/alien_skitter.png',alien_hulk:'assets/alien_hulk.png',
+  alien_hopper:'assets/alien_hopper.png',alien_shade:'assets/alien_shade.png',alien_splitter:'assets/alien_splitter.png',
+  alien_howler:'assets/alien_howler.png',alien_listener:'assets/alien_listener.png',
+  relay:'assets/relay.png',map_bg:'assets/map_bg.jpg',title:'assets/title.jpg'
+};
+const ART={};
+for(const [k,src] of Object.entries(ART_FILES)){ const i=new Image(); i.onload=()=>{ ART[k]=i; }; i.src=src; }
+
+/* ---------- lore: filed one per cleared wave ---------- */
+const LORE=[
+ "[22:51:33Z] First contact at the outer ring. It moves as if it already knows the floor plan.",
+ "[22:58:02Z] Three bands in use. We named them Alpha, Bravo, Charlie. They did not object.",
+ "[23:04:19Z] Matched tuning shreds them. Mismatched tuning only annoys them. Note: they notice when you turn the dial.",
+ "[23:11:40Z] Something heavy walked the corridor. The floor logged it as weather.",
+ "[23:19:05Z] Some change band mid-stride. Not drift. A decision.",
+ "[23:26:48Z] Watch One reports the room is quieter after every wave. Watch Two says it is only listening harder.",
+ "[23:33:12Z] Unseen contacts. The sweep passes through them as if they were not there. Beacon light shows them anyway.",
+ "[23:41:57Z] One broke into two. Neither was smaller.",
+ "[23:49:30Z] Night log reads nineteen minutes between pulses. The pulses have shortened to eleven.",
+ "[00:02:14Z] A voice on the channel, in the cadence of the shift briefing. The briefing was never recorded.",
+ "[00:10:41Z] Howlers drown the dials. Towers go deaf when they scream. Keep them apart.",
+ "[00:17:03Z] AK Wing archive requested again. Reply: 'We hear you.' No sender.",
+ "[00:25:26Z] The corridor is longer than the plans say. We measured three times. It was longer each time.",
+ "[00:33:58Z] Watch Three has never met Watch One. Both insist they relieved each other.",
+ "[00:41:20Z] A dish picked up our own transmissions, played back a day early.",
+ "[00:50:09Z] If you can read this, the log is working. If the log is working, you are still holding.",
+ "[00:58:44Z] They are not attacking the relay. They are trying to be received.",
+ "[01:07:31Z] Frequency 1420.405 appears in every sweep. Nobody keyed it.",
+ "[01:15:00Z] The next one is not a wave. It is the thing the waves were carrying.",
+ "[01:23:47Z] It reached the room. The room said nothing. Then the room said everything. REF-015 filed."
+];
+const LORE_INTRO="[22:47:10Z] The relay is receiving something it did not ask for. Whoever is on watch: hold the frequency.";
+const LORE_LOSS="[--:--:--Z] Signal lost. The room is still listening.";
+const LORE_WIN_CODE="1420";
+
+/* ---------- path (a spiral that ends at the relay) ---------- */
+const WP=[[-1,1],[14,1],[14,8],[1,8],[1,3],[11,3],[11,6],[4,6],[4,4],[6,4]].map(([c,r])=>({x:(c+.5)*CELL,y:(r+.5)*CELL}));
+WP.push({x:425,y:270});
+const SEG=[]; let PATH_LEN=0;
+for(let i=0;i<WP.length-1;i++){ const a=WP[i],b=WP[i+1],l=Math.hypot(b.x-a.x,b.y-a.y); SEG.push({a,b,l,start:PATH_LEN,ang:Math.atan2(b.y-a.y,b.x-a.x)}); PATH_LEN+=l; }
+function posAt(d){ d=Math.max(0,Math.min(PATH_LEN,d)); for(const s of SEG){ if(d<=s.start+s.l){ const t=(d-s.start)/s.l; return {x:s.a.x+(s.b.x-s.a.x)*t,y:s.a.y+(s.b.y-s.a.y)*t,ang:s.ang}; } } const s=SEG[SEG.length-1]; return {x:s.b.x,y:s.b.y,ang:s.ang}; }
+const BLOCK=new Set();
+for(const s of SEG){ const n=Math.ceil(s.l/10); for(let i=0;i<=n;i++){ const x=s.a.x+(s.b.x-s.a.x)*i/n, y=s.a.y+(s.b.y-s.a.y)*i/n; const c=Math.floor(x/CELL), r=Math.floor(y/CELL); if(c>=0&&c<COLS&&r>=0&&r<ROWS) BLOCK.add(c+','+r); } }
+for(const k of ['7,4','8,4','7,5','8,5']) BLOCK.add(k);
+
+/* ---------- helpers ---------- */
+const $=id=>document.getElementById(id);
+const rnd=(a,b)=>a+Math.random()*(b-a);
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const ctx=$('c').getContext('2d');
+
+/* ---------- audio (tiny synth) ---------- */
+let AC=null, muted=false;
+function tone(f,d,type='square',v=0.04,slide=0,delay=0){
+  if(muted) return;
+  try{
+    AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+    const t=AC.currentTime+delay,o=AC.createOscillator(),g=AC.createGain();
+    o.type=type; o.frequency.setValueAtTime(f,t); if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(30,f+slide),t+d);
+    g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+    o.connect(g).connect(AC.destination); o.start(t); o.stop(t+d+0.03);
+  }catch(e){}
+}
+const SFX={
+  shot:k=>tone({dipole:820,dish:240,coil:520,burst:180}[k]||600,k==='dish'?0.28:0.09,k==='coil'?'sawtooth':'square',0.025,-300),
+  kill:()=>tone(300,0.14,'triangle',0.05,-180),
+  leak:()=>{ tone(110,0.4,'sawtooth',0.09,-60); },
+  build:()=>{ tone(330,0.08,'triangle',0.05); tone(495,0.1,'triangle',0.05,0,0.08); },
+  sell:()=>tone(260,0.16,'triangle',0.05,-120),
+  tune:()=>tone(700,0.1,'sine',0.05,500),
+  wave:()=>{ tone(150,0.5,'sawtooth',0.06,60); tone(225,0.5,'sawtooth',0.05,60,0.15); },
+  clear:()=>{ tone(440,0.12,'triangle',0.05); tone(660,0.2,'triangle',0.05,0,0.12); },
+  ping:()=>tone(300,0.6,'sine',0.06,900),
+  howl:()=>tone(800,0.5,'sawtooth',0.05,-500),
+  deny:()=>tone(120,0.12,'square',0.04)
+};
+
+/* ======================= game state ======================= */
+const G={
+  phase:'title', wave:0, credits:0, integrity:START_INTEGRITY, T:0, speed:1, paused:false,
+  towers:[], aliens:[], fx:[], queue:[], waveT:0, countdown:0, pingUntil:0, pingReadyAt:0,
+  radar:0, sel:null, build:null, hover:null, nextId:1, cleared:false, lastLeakAt:-9, kills:0, log:[], hpMul:1,
+  lastBand:'A', best:+localStorage.getItem('sr9.htf.best')||0, diff:localStorage.getItem('sr9.htf.diff')||'standard'
+};
+if(!DIFF[G.diff]) G.diff='standard';
+let bannerTimer=null;
+
+function resetGame(){
+  Object.assign(G,{phase:'prep',wave:0,credits:DIFF[G.diff].credits,integrity:START_INTEGRITY,T:0,towers:[],aliens:[],fx:[],queue:[],waveT:0,
+    countdown:35,pingUntil:0,pingReadyAt:0,radar:0,sel:null,build:null,hover:null,nextId:1,cleared:false,kills:0,log:[],paused:false});
+  feedClear(); feed(LORE_INTRO,true); G.log.push(LORE_INTRO);
+  renderPanel(); renderBuild(); hud();
+}
+
+/* ---------- towers ---------- */
+const lvlMul=l=>({dmg:1+0.5*(l-1),range:1+0.08*(l-1),rate:1-0.1*(l-1)});
+function towerStats(tw){ const d=TOWER_DEFS[tw.key],m=lvlMul(tw.level);
+  return {dmg:(d.dmg||0)*m.dmg,range:d.range*m.range*(tw.key==='beacon'?1+0.17*(tw.level-1):1),rate:(d.rate||1)*m.rate,slow:d.slow?Math.min(0.8,d.slow+0.1*(tw.level-1)):0}; }
+const upgradeCost=tw=>Math.round(TOWER_DEFS[tw.key].cost*TUNE.upgradeMul*tw.level);
+const sellValue=tw=>Math.round(tw.invested*TUNE.sellBack);
+function cellFree(c,r){ return c>=0&&r>=0&&c<COLS&&r<ROWS&&!BLOCK.has(c+','+r)&&!G.towers.some(t=>t.c===c&&t.r===r); }
+function placeTower(key,c,r,band){
+  const d=TOWER_DEFS[key]; if(!d||!cellFree(c,r)||G.credits<d.cost) return null;
+  G.credits-=d.cost;
+  const tw={id:G.nextId++,key,c,r,x:(c+.5)*CELL,y:(r+.5)*CELL,band:band||'A',level:1,cd:0.2,retune:0,jam:0,ang:-Math.PI/2,invested:d.cost,flash:0};
+  Object.assign(tw,towerStats(tw)); G.towers.push(tw); SFX.build(); return tw;
+}
+function upgradeTower(tw){ if(tw.level>=3) return false; const c=upgradeCost(tw); if(G.credits<c){ SFX.deny(); return false; }
+  G.credits-=c; tw.invested+=c; tw.level++; Object.assign(tw,towerStats(tw)); SFX.build(); return true; }
+function sellTower(tw){ G.credits+=sellValue(tw); G.towers=G.towers.filter(t=>t!==tw); if(G.sel===tw) G.sel=null; SFX.sell(); }
+function tuneTower(tw,band){ if(!TOWER_DEFS[tw.key].tune||tw.band===band) return; tw.band=band; G.lastBand=band; tw.retune=1.2; SFX.tune(); }
+
+/* ---------- aliens ---------- */
+function spawnAlien(type,band,d=0,hpMul=G.hpMul,scale=1){
+  const def=ALIEN_DEFS[type]; const p=posAt(d);
+  const a={id:G.nextId++,type,def,d,x:p.x,y:p.y,ang:p.ang,band,maxhp:def.boss?def.hp*TUNE.bossHp:def.hp*hpMul*scale,hp:def.boss?def.hp*TUNE.bossHp:def.hp*hpMul*scale,slowUntil:0,slow:0,litUntil:0,revealUntil:0,
+    hopT:def.hop?def.hop*(0.6+Math.random()*0.8):0,howlT:def.howl?def.howl*(0.5+Math.random()*0.7):0,summonT:def.boss?8:0,flash:0,dead:false,wob:Math.random()*TAU};
+  G.aliens.push(a); return a;
+}
+const detectable=a=>a.def.cloak?a.revealUntil>G.T:a.litUntil>G.T;
+function damageAlien(a,base,tw,color){
+  const mult=a.band===tw.band?MATCH:MISMATCH; const dmg=base*mult;
+  a.hp-=dmg; a.flash=0.12;
+  G.fx.push({k:'txt',x:a.x+rnd(-8,8),y:a.y-a.def.r-4,t:0.7,s:mult>1?Math.round(dmg)+'!':String(Math.round(dmg)),c:mult>1?BANDS[tw.band].color:'#8a8f80',big:mult>1});
+  if(a.hp<=0&&!a.dead) killAlien(a);
+}
+function killAlien(a){
+  a.dead=true; G.kills++;
+  const reward=Math.round(a.def.reward*(1+TUNE.rewardGrow*(G.wave-1))); G.credits+=reward;
+  G.fx.push({k:'ring',x:a.x,y:a.y,t:0.4,r:a.def.r,c:BANDS[a.band].color});
+  G.fx.push({k:'txt',x:a.x,y:a.y-18,t:0.8,s:'+'+reward,c:'#d1a13d'});
+  SFX.kill();
+  if(a.def.split){ for(let i=0;i<a.def.split;i++){ const s=spawnAlien('skitter',BK[Math.floor(Math.random()*3)],Math.max(0,a.d-i*14),G.hpMul,0.9); s.litUntil=G.T+0.8; } }
+}
+
+/* ---------- waves ---------- */
+function genWave(w){
+  const r=mulberry32((w*2654435761)>>>0), evs=[];
+  const unlocked=Object.keys(UNLOCK).filter(t=>w>=UNLOCK[t]);
+  let budget=TUNE.budgetBase+TUNE.budgetLin*w+TUNE.budgetQuad*w*w; const dom=BK[Math.floor(r()*3)];
+  const domP=Math.max(0.4,0.72-0.016*w);
+  const pickBand=()=>{ const x=r(); if(x<domP) return dom; const i=BK.indexOf(dom); return BK[(i+1+(r()<0.5?0:1))%3]; };
+  let t=0.5;
+  if(w===TOTAL_WAVES){ evs.push({at:2,type:'listener',band:'A'}); budget*=0.5; t=6; }
+  while(budget>0.8){
+    const pool=unlocked.filter(x=>WCOST[x]<=budget+0.6); if(!pool.length) break;
+    const wts=pool.map(x=>1+(w-UNLOCK[x]<3?2.2:0)+(x==='drifter'?1.5:0)-(x==='hulk'?0.4:0));
+    let s=r()*wts.reduce((a,b)=>a+b,0),type=pool[0]; for(let i=0;i<pool.length;i++){ s-=wts[i]; if(s<=0){ type=pool[i]; break; } }
+    const n={skitter:3+Math.floor(r()*4),drifter:2+Math.floor(r()*4),hulk:1+Math.floor(r()*2),hopper:1+Math.floor(r()*3),shade:1+Math.floor(r()*3),splitter:1+Math.floor(r()*2),howler:1+Math.floor(r()*2)}[type]||2;
+    const gap={skitter:0.42,drifter:0.85,hulk:2.1,hopper:0.9,shade:1.0,splitter:1.4,howler:1.8}[type]||1;
+    for(let i=0;i<n&&budget>0.8;i++){ evs.push({at:t,type,band:pickBand()}); t+=gap; budget-=WCOST[type]; }
+    t+=1.2;
+  }
+  return evs.sort((a,b)=>a.at-b.at);
+}
+function startWave(){
+  if(G.phase!=='prep'||G.wave>=TOTAL_WAVES) return false;
+  if(G.countdown>1) G.credits+=Math.floor(G.countdown);      // early-send bonus
+  G.wave++; G.hpMul=(1+TUNE.hpSlope*(G.wave-1)+TUNE.hpQuad*(G.wave-1)*(G.wave-1))*DIFF[G.diff].hp; G.queue=genWave(G.wave); G.waveT=0; G.phase='wave'; G.countdown=0;
+  banner(G.wave===TOTAL_WAVES?'THE LISTENER IS COMING':'WAVE '+G.wave+' INCOMING'); SFX.wave(); hud(); renderBuild();
+  return true;
+}
+function waveCleared(){
+  G.phase='prep'; const bonus=TUNE.waveBonus+TUNE.waveBonusLin*G.wave; G.credits+=bonus;
+  const entry=LORE[G.wave-1]; G.log.push(entry); feed(entry,true);
+  banner('WAVE '+G.wave+' CLEARED  +'+bonus); SFX.clear();
+  if(G.wave>=TOTAL_WAVES){ win(); return; }
+  G.countdown=16; renderBuild();
+}
+
+/* ======================= simulation ======================= */
+function update(dt){
+  if(G.phase==='title'||G.phase==='over') return;
+  G.T+=dt;
+  // radar sweep
+  G.radar=(G.radar+TAU/SWEEP_PERIOD*dt)%TAU;
+  // prep countdown / wave spawning
+  if(G.phase==='prep'){ if(G.wave<TOTAL_WAVES){ G.countdown-=dt; if(G.countdown<=0) startWave(); } }
+  else if(G.phase==='wave'){
+    G.waveT+=dt;
+    while(G.queue.length&&G.queue[0].at<=G.waveT){ const e=G.queue.shift(); spawnAlien(e.type,e.band); }
+  }
+  // lighting
+  const pingOn=G.T<G.pingUntil;
+  for(const a of G.aliens){
+    let lit=false,reveal=false;
+    if(pingOn){ lit=true; reveal=true; }
+    else{
+      let dlt=G.radar-Math.atan2(a.y-CY,a.x-CX); dlt=((dlt%TAU)+TAU)%TAU; if(dlt<WEDGE) lit=true;
+      for(const tw of G.towers){ if(tw.jam>0) continue; const dx=a.x-tw.x,dy=a.y-tw.y,d2=dx*dx+dy*dy;
+        if(tw.key==='beacon'){ if(d2<tw.range*tw.range){ lit=true; reveal=true; } }
+        else if(d2<CONTACT*CONTACT){ lit=true; if(d2<CONTACT_REVEAL*CONTACT_REVEAL) reveal=true; } }
+    }
+    if(reveal){ a.litUntil=Math.max(a.litUntil,G.T+0.5); a.revealUntil=G.T+0.55; }
+    else if(lit&&!a.def.cloak) a.litUntil=Math.max(a.litUntil,G.T+(pingOn?0.6:GHOST));
+  }
+  // towers
+  for(const tw of G.towers){
+    tw.retune=Math.max(0,tw.retune-dt); tw.jam=Math.max(0,tw.jam-dt); tw.flash=Math.max(0,tw.flash-dt);
+    if(tw.retune>0||tw.jam>0) continue;
+    if(tw.key==='jammer'){ for(const a of G.aliens){ const dx=a.x-tw.x,dy=a.y-tw.y; if(dx*dx+dy*dy<tw.range*tw.range){ a.slowUntil=G.T+0.25; a.slow=Math.max(a.slow,tw.slow); } } continue; }
+    if(tw.key==='beacon') continue;
+    tw.cd-=dt; if(tw.cd>0) continue;
+    let best=null;
+    for(const a of G.aliens){ if(a.dead||!detectable(a)) continue; const dx=a.x-tw.x,dy=a.y-tw.y; if(dx*dx+dy*dy>tw.range*tw.range) continue; if(!best||a.d>best.d) best=a; }
+    if(!best) continue;
+    tw.cd=tw.rate; tw.ang=Math.atan2(best.y-tw.y,best.x-tw.x); tw.flash=0.1; SFX.shot(tw.key);
+    const col=BANDS[tw.band].color;
+    if(tw.key==='coil'){
+      damageAlien(best,tw.dmg,tw,col); let prev=best; const hit=new Set([best]);
+      G.fx.push({k:'beam',x1:tw.x,y1:tw.y,x2:best.x,y2:best.y,t:0.12,c:col,w:2,jag:true});
+      for(let i=0;i<tw.chain;i++){ let n=null,nd=95*95; for(const a of G.aliens){ if(a.dead||hit.has(a)||!detectable(a)) continue; const dx=a.x-prev.x,dy=a.y-prev.y,d=dx*dx+dy*dy; if(d<nd){ nd=d; n=a; } }
+        if(!n) break; hit.add(n); G.fx.push({k:'beam',x1:prev.x,y1:prev.y,x2:n.x,y2:n.y,t:0.12,c:col,w:1.5,jag:true}); damageAlien(n,tw.dmg*0.75,tw,col); prev=n; }
+    }else if(tw.key==='burst'){
+      G.fx.push({k:'beam',x1:tw.x,y1:tw.y,x2:best.x,y2:best.y,t:0.1,c:col,w:3});
+      G.fx.push({k:'ring',x:best.x,y:best.y,t:0.35,r:TOWER_DEFS.burst.splash,c:col,grow:true});
+      for(const a of G.aliens){ if(a.dead) continue; const dx=a.x-best.x,dy=a.y-best.y,dd=Math.hypot(dx,dy); if(dd<=TOWER_DEFS.burst.splash) damageAlien(a,tw.dmg*(1-0.4*dd/TOWER_DEFS.burst.splash),tw,col); }
+    }else{
+      G.fx.push({k:'beam',x1:tw.x,y1:tw.y,x2:best.x,y2:best.y,t:tw.key==='dish'?0.18:0.08,c:col,w:tw.key==='dish'?4:1.6});
+      damageAlien(best,tw.dmg,tw,col);
+    }
+  }
+  // aliens
+  for(const a of G.aliens){
+    if(a.dead) continue;
+    a.flash=Math.max(0,a.flash-dt);
+    const slow=G.T<a.slowUntil?(1-a.slow):1; if(G.T>=a.slowUntil) a.slow=0;
+    a.d+=a.def.spd*slow*dt; const p=posAt(a.d); a.x=p.x; a.y=p.y; a.ang=p.ang;
+    if(a.def.hop){ a.hopT-=dt; if(a.hopT<=0){ a.hopT=a.def.hop*(0.8+Math.random()*0.4); const nb=BK.filter(b=>b!==a.band); a.band=nb[Math.floor(Math.random()*2)]; G.fx.push({k:'ring',x:a.x,y:a.y,t:0.3,r:a.def.r+8,c:BANDS[a.band].color}); } }
+    if(a.def.howl){ a.howlT-=dt; if(a.howlT<=0){ a.howlT=a.def.howl; let any=false; for(const tw of G.towers){ const dx=tw.x-a.x,dy=tw.y-a.y; if(dx*dx+dy*dy<150*150){ tw.jam=2.2; any=true; } }
+      if(any||detectable(a)){ G.fx.push({k:'ring',x:a.x,y:a.y,t:0.6,r:150,c:'#b04a3a',grow:true}); SFX.howl(); } } }
+    if(a.def.boss){ a.summonT-=dt; if(a.summonT<=0){ a.summonT=8; for(let i=0;i<2;i++){ const s=spawnAlien('drifter',BK[Math.floor(Math.random()*3)],Math.max(0,a.d-20-i*18),G.hpMul*0.7); s.litUntil=G.T+0.8; } } }
+    if(a.d>=PATH_LEN){ a.dead=true; G.integrity-=a.def.leak; G.lastLeakAt=G.T; SFX.leak(); G.fx.push({k:'flash',t:0.35}); if(G.integrity<=0){ G.integrity=0; lose(); return; } }
+  }
+  G.aliens=G.aliens.filter(a=>!a.dead);
+  G.fx=G.fx.filter(f=>(f.t-=dt)>0);
+  if(G.phase==='wave'&&!G.queue.length&&!G.aliens.length) waveCleared();
+}
+function ping(){ if(G.phase==='title'||G.phase==='over') return false; if(G.T<G.pingReadyAt){ SFX.deny(); return false; } G.pingUntil=G.T+PING_LEN; G.pingReadyAt=G.T+PING_CD; SFX.ping(); G.fx.push({k:'ring',x:CX,y:CY,t:0.9,r:620,c:'#7dff9a',grow:true}); return true; }
+
+/* ---------- end states ---------- */
+function lose(){
+  G.phase='over'; G.log.push(LORE_LOSS); localStorage.setItem('sr9.htf.best',Math.max(G.best,G.wave-1)); G.best=Math.max(G.best,G.wave-1);
+  openCard(`<h2>SIGNAL <span>LOST</span></h2><div class="sub">${DIFF[G.diff].name} // WAVE ${G.wave} // ${G.kills} CONTACTS NEUTRALISED</div>
+    <div class="term"><div><span class="tag">[--:--:--Z]</span> Signal lost. The room is still listening.</div></div>
+    <p>Best watch so far: wave ${G.best}.</p><button class="btn hot" id="again">TAKE THE WATCH AGAIN</button> <button class="btn" id="toTitle">CHANGE LEVEL</button>`);
+  $('again').onclick=()=>{ closeCard(); resetGame(); }; $('toTitle').onclick=()=>{ closeCard(); showTitle(); };
+}
+function win(){
+  G.phase='over'; G.cleared=true; localStorage.setItem('sr9.htf.best',TOTAL_WAVES); localStorage.setItem('sr9.htf.cleared',String(Date.now()));
+  openCard(`<h2>FREQUENCY <span>HELD</span></h2><div class="sub">ALL ${TOTAL_WAVES} WAVES // ${G.kills} CONTACTS NEUTRALISED</div>
+    <div class="term"><div><span class="tag">${LORE[19].slice(0,11)}</span> <span class="nw">${LORE[19].slice(12)}</span></div></div>
+    <p>A fragment came through on the last sweep. Whatever it opens, it is not on this page.</p>
+    <div class="code">${LORE_WIN_CODE}</div>
+    <p style="color:#6c7266;font-size:11px">CLEARANCE FRAGMENT // REF-015 // YOU WEREN'T SUPPOSED TO HAVE THIS.</p>
+    <button class="btn hot" id="again">TAKE THE WATCH AGAIN</button>`);
+  $('again').onclick=()=>{ closeCard(); resetGame(); };
+}
+
+/* ======================= rendering ======================= */
+function glow(col,blur){ ctx.shadowColor=col; ctx.shadowBlur=blur; }
+function unglow(){ ctx.shadowBlur=0; }
+function drawMap(){
+  if(ART.map_bg){ ctx.globalAlpha=0.9; ctx.drawImage(ART.map_bg,0,0,W,H); ctx.globalAlpha=1; }
+  else{ ctx.fillStyle='#0a0d0b'; ctx.fillRect(0,0,W,H); }
+  // grid
+  ctx.strokeStyle='rgba(125,255,154,0.05)'; ctx.lineWidth=1; ctx.beginPath();
+  for(let c=0;c<=COLS;c++){ ctx.moveTo(c*CELL+.5,0); ctx.lineTo(c*CELL+.5,H); } for(let r=0;r<=ROWS;r++){ ctx.moveTo(0,r*CELL+.5); ctx.lineTo(W,r*CELL+.5); } ctx.stroke();
+  // conduit
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.strokeStyle='rgba(122,53,36,0.55)'; ctx.lineWidth=40; ctx.beginPath(); WP.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
+  ctx.strokeStyle='rgba(20,14,10,0.9)'; ctx.lineWidth=32; ctx.beginPath(); WP.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
+  ctx.strokeStyle='rgba(209,161,61,0.18)'; ctx.lineWidth=2; ctx.setLineDash([10,14]); ctx.lineDashOffset=-G.T*18; ctx.beginPath(); WP.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke(); ctx.setLineDash([]);
+  // buildable dots
+  ctx.fillStyle='rgba(217,211,191,0.07)';
+  for(let c=0;c<COLS;c++) for(let r=0;r<ROWS;r++) if(!BLOCK.has(c+','+r)) { ctx.beginPath(); ctx.arc((c+.5)*CELL,(r+.5)*CELL,1.6,0,TAU); ctx.fill(); }
+}
+function drawRelay(){
+  const x=420,y=240,w=120,h=120;
+  if(ART.relay){ ctx.drawImage(ART.relay,x-10,y-10,w+20,h+20); }
+  else{
+    ctx.fillStyle='#10140f'; ctx.strokeStyle='#3a4234'; ctx.lineWidth=2; ctx.fillRect(x,y,w,h); ctx.strokeRect(x+.5,y+.5,w,h);
+    ctx.strokeStyle='rgba(209,56,44,.5)'; ctx.strokeRect(x+10,y+10,w-20,h-20);
+    ctx.fillStyle='#d9d3bf'; ctx.font='600 11px IBM Plex Mono, monospace'; ctx.textAlign='center'; ctx.fillText('SR-9',CX,CY+4);
+    const on=((G.T*1.2)%1)<0.5; ctx.fillStyle=on?'#d1382c':'#4a1a14'; ctx.beginPath(); ctx.arc(x+16,y+16,4,0,TAU); ctx.fill();
+  }
+  // rotating dish on top
+  ctx.save(); ctx.translate(CX,CY-26); ctx.rotate(G.radar); ctx.strokeStyle='#7dff9a'; ctx.lineWidth=2; glow('#7dff9a',8);
+  ctx.beginPath(); ctx.arc(0,0,11,-0.9,0.9); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(16,0); ctx.stroke(); unglow(); ctx.restore();
+}
+function drawSweep(){
+  const R=640;
+  ctx.save(); ctx.translate(CX,CY);
+  if(ctx.createConicGradient){
+    const g=ctx.createConicGradient(G.radar-WEDGE,0,0); g.addColorStop(0,'rgba(125,255,154,0)'); g.addColorStop(WEDGE/TAU,'rgba(125,255,154,0.20)'); g.addColorStop(WEDGE/TAU+0.0001,'rgba(125,255,154,0)'); g.addColorStop(1,'rgba(125,255,154,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,R,G.radar-WEDGE,G.radar); ctx.closePath(); ctx.fill();
+  }else{ ctx.fillStyle='rgba(125,255,154,0.08)'; ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,R,G.radar-WEDGE,G.radar); ctx.closePath(); ctx.fill(); }
+  ctx.strokeStyle='rgba(125,255,154,0.55)'; ctx.lineWidth=1.5; glow('#7dff9a',6); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(G.radar)*R,Math.sin(G.radar)*R); ctx.stroke(); unglow();
+  ctx.restore();
+  if(G.T<G.pingUntil){ ctx.fillStyle='rgba(125,255,154,'+(0.06*clamp((G.pingUntil-G.T)/PING_LEN,0,1))+')'; ctx.fillRect(0,0,W,H); }
+}
+function drawTower(tw,ghost){
+  const d=TOWER_DEFS[tw.key], x=tw.x,y=tw.y; const col=d.tune?BANDS[tw.band].color:'#d9d3bf';
+  const down=tw.jam>0, retune=tw.retune>0;
+  ctx.save(); ctx.translate(x,y); if(ghost) ctx.globalAlpha=0.55;
+  // plate
+  ctx.fillStyle='#0f130e'; ctx.strokeStyle='#2c3328'; ctx.lineWidth=1.5; ctx.fillRect(-24,-24,48,48); ctx.strokeRect(-24,-24,48,48);
+  const sprite=ART['tower_'+tw.key];
+  ctx.save(); if(d.rot) ctx.rotate(tw.ang);
+  if(sprite){ const s=54; ctx.drawImage(sprite,-s/2,-s/2,s,s); }
+  else{
+    ctx.strokeStyle=down?'#555':'#d9d3bf'; ctx.fillStyle='#1a1f17'; ctx.lineWidth=2;
+    switch(tw.key){
+      case 'dipole': ctx.beginPath(); ctx.moveTo(-4,-14); ctx.lineTo(18,-4); ctx.moveTo(-4,14); ctx.lineTo(18,4); ctx.moveTo(-8,-14); ctx.lineTo(-8,14); ctx.stroke(); break;
+      case 'dish': ctx.beginPath(); ctx.arc(-4,0,16,-1.1,1.1); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-4,0); ctx.lineTo(18,0); ctx.stroke(); ctx.beginPath(); ctx.arc(18,0,3,0,TAU); ctx.fill(); ctx.stroke(); break;
+      case 'coil': for(let i=1;i<=3;i++){ ctx.beginPath(); ctx.arc(0,0,i*6,0,TAU); ctx.stroke(); } ctx.fillStyle=col; ctx.beginPath(); ctx.arc(0,0,3,0,TAU); ctx.fill(); break;
+      case 'burst': ctx.beginPath(); for(let i=0;i<6;i++){ const a=i*TAU/6; ctx.lineTo(Math.cos(a)*14,Math.sin(a)*14); } ctx.closePath(); ctx.stroke(); ctx.fillRect(4,-4,16,8); ctx.strokeRect(4,-4,16,8); break;
+      case 'jammer': ctx.beginPath(); ctx.moveTo(0,10); ctx.lineTo(0,-12); ctx.stroke(); for(let i=1;i<=2;i++){ ctx.beginPath(); ctx.arc(0,-12,5+i*6,-2.4,-0.74); ctx.stroke(); } break;
+      case 'beacon': ctx.beginPath(); ctx.arc(0,0,11,0,TAU); ctx.stroke(); ctx.rotate(G.T*2); glow('#7dff9a',10); ctx.strokeStyle='#7dff9a'; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(18,0); ctx.stroke(); unglow(); break;
+    }
+  }
+  ctx.restore();
+  // band ring
+  if(d.tune){ ctx.strokeStyle=col; ctx.lineWidth=2.5; glow(col,retune?0:8); ctx.beginPath(); ctx.arc(0,0,22,0,TAU); ctx.stroke(); unglow();
+    ctx.fillStyle=col; ctx.font='700 10px IBM Plex Mono, monospace'; ctx.textAlign='center'; ctx.fillText(tw.band,-17,-13); }
+  // level pips
+  ctx.fillStyle='#d1a13d'; for(let i=0;i<tw.level;i++) ctx.fillRect(-14+i*8,19,5,3);
+  if(retune){ ctx.strokeStyle='#d9d3bf'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(0,0,27,-Math.PI/2,-Math.PI/2+TAU*(1-tw.retune/1.2)); ctx.stroke(); }
+  if(down){ ctx.fillStyle='rgba(176,74,58,.5)'; ctx.fillRect(-24,-24,48,48); ctx.fillStyle='#e0a090'; ctx.font='700 10px IBM Plex Mono, monospace'; ctx.textAlign='center'; ctx.fillText('JAMMED',0,4); }
+  if(tw.flash>0){ ctx.strokeStyle=col; ctx.lineWidth=2; ctx.strokeRect(-24,-24,48,48); }
+  ctx.restore();
+}
+function drawAlien(a){
+  const vis=a.def.cloak?a.revealUntil>G.T:a.litUntil>G.T; if(!vis) return;
+  const edge=a.def.cloak?a.revealUntil-G.T:a.litUntil-G.T; const alpha=clamp(edge/0.5,0.15,1);
+  const col=BANDS[a.band].color, r=a.def.r;
+  ctx.save(); ctx.translate(a.x,a.y); ctx.globalAlpha=alpha;
+  // hp bar
+  if(a.hp<a.maxhp){ ctx.fillStyle='#000'; ctx.fillRect(-r,-r-8,2*r,3); ctx.fillStyle=col; ctx.fillRect(-r,-r-8,2*r*Math.max(0,a.hp/a.maxhp),3); }
+  const sprite=ART['alien_'+a.type];
+  glow(col,a.flash>0?18:10);
+  if(sprite){ ctx.rotate(a.ang); const s=r*3.1; ctx.drawImage(sprite,-s/2,-s/2,s,s); unglow(); ctx.rotate(-a.ang); ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0,r+3,0,TAU); ctx.stroke(); }
+  else{
+    ctx.fillStyle=a.flash>0?'#ffffff':'#0d130d'; ctx.strokeStyle=col; ctx.lineWidth=2.2;
+    const wob=Math.sin(G.T*5+a.wob)*1.5;
+    switch(a.type){
+      case 'skitter': ctx.rotate(a.ang); ctx.beginPath(); ctx.moveTo(r+3,0); ctx.lineTo(-r,r*.9); ctx.lineTo(-r*.5,0); ctx.lineTo(-r,-r*.9); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.rotate(-a.ang); break;
+      case 'hulk': ctx.beginPath(); for(let i=0;i<6;i++){ const t=i*TAU/6+0.3; ctx.lineTo(Math.cos(t)*r,Math.sin(t)*r); } ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(0,0,r*.45,0,TAU); ctx.stroke(); break;
+      case 'hopper': ctx.rotate(G.T*3); ctx.beginPath(); ctx.moveTo(0,-r-2); ctx.lineTo(r+2,0); ctx.lineTo(0,r+2); ctx.lineTo(-r-2,0); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.rotate(-G.T*3); break;
+      case 'shade': ctx.setLineDash([4,3]); ctx.beginPath(); ctx.arc(0,0,r+wob*.5,0,TAU); ctx.stroke(); ctx.setLineDash([]); ctx.beginPath(); ctx.arc(0,0,r*.5,0,TAU); ctx.fill(); break;
+      case 'splitter': ctx.beginPath(); ctx.arc(-r*.35,0,r*.75,0,TAU); ctx.arc(r*.4,0,r*.75,0,TAU); ctx.fill(); ctx.stroke(); break;
+      case 'howler': ctx.beginPath(); for(let i=0;i<16;i++){ const t=i*TAU/16, rr=i%2?r*.65:r+3; ctx.lineTo(Math.cos(t)*rr,Math.sin(t)*rr); } ctx.closePath(); ctx.fill(); ctx.stroke(); break;
+      case 'listener': for(let i=3;i>=1;i--){ ctx.beginPath(); ctx.arc(0,0,r*i/3+wob,0,TAU); ctx.fillStyle=i===3?'#0d130d':'#111812'; ctx.fill(); ctx.stroke(); } ctx.fillStyle=col; ctx.beginPath(); ctx.ellipse(0,0,r*.28,r*.14,0,0,TAU); ctx.fill(); break;
+      default: ctx.beginPath(); ctx.arc(0,0,r+wob*.4,0,TAU); ctx.fill(); ctx.stroke();
+    }
+    unglow(); ctx.fillStyle=col; ctx.beginPath(); ctx.arc(0,0,a.type==='listener'?4:2.6,0,TAU); ctx.fill();
+  }
+  unglow(); ctx.restore();
+}
+function drawFx(){
+  for(const f of G.fx){
+    if(f.k==='beam'){ ctx.globalAlpha=clamp(f.t*8,0,1); ctx.strokeStyle=f.c; ctx.lineWidth=f.w; glow(f.c,10); ctx.beginPath(); ctx.moveTo(f.x1,f.y1);
+      if(f.jag){ const n=4; for(let i=1;i<n;i++){ const t=i/n; ctx.lineTo(f.x1+(f.x2-f.x1)*t+rnd(-6,6),f.y1+(f.y2-f.y1)*t+rnd(-6,6)); } }
+      ctx.lineTo(f.x2,f.y2); ctx.stroke(); unglow(); ctx.globalAlpha=1; }
+    else if(f.k==='ring'){ const p=1-f.t/(f.grow?0.6:0.4); const rr=f.grow?f.r*clamp(p*1.3,0,1):f.r+p*14; ctx.globalAlpha=clamp(f.t*2.5,0,1)*0.8; ctx.strokeStyle=f.c; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(f.x,f.y,rr,0,TAU); ctx.stroke(); ctx.globalAlpha=1; }
+    else if(f.k==='txt'){ const rise=(0.8-f.t)*22; ctx.globalAlpha=clamp(f.t*3,0,1); ctx.fillStyle=f.c; ctx.font=(f.big?'700 14px':'500 11px')+' IBM Plex Mono, monospace'; ctx.textAlign='center'; ctx.fillText(f.s,f.x,f.y-rise); ctx.globalAlpha=1; }
+    else if(f.k==='flash'){ ctx.fillStyle='rgba(209,56,44,'+(f.t*0.45)+')'; ctx.fillRect(0,0,W,H); }
+  }
+}
+function drawOverlayUI(){
+  // placement / selection previews
+  const sel=G.sel; if(sel){ ctx.strokeStyle='rgba(125,255,154,.6)'; ctx.lineWidth=1.5; ctx.setLineDash([5,5]); ctx.beginPath(); ctx.arc(sel.x,sel.y,sel.range,0,TAU); ctx.stroke(); ctx.setLineDash([]); ctx.strokeStyle='#7dff9a'; ctx.lineWidth=2; ctx.strokeRect(sel.x-27,sel.y-27,54,54); }
+  if(G.build&&G.hover){ const {c,r}=G.hover; const ok=cellFree(c,r)&&G.credits>=TOWER_DEFS[G.build].cost; const d=TOWER_DEFS[G.build];
+    const x=(c+.5)*CELL,y=(r+.5)*CELL; ctx.fillStyle=ok?'rgba(125,255,154,.12)':'rgba(209,56,44,.18)'; ctx.fillRect(c*CELL,r*CELL,CELL,CELL);
+    ctx.strokeStyle=ok?'rgba(125,255,154,.6)':'rgba(209,56,44,.7)'; ctx.setLineDash([5,5]); ctx.beginPath(); ctx.arc(x,y,d.range,0,TAU); ctx.stroke(); ctx.setLineDash([]);
+    drawTower({key:G.build,x,y,band:'A',level:1,ang:-Math.PI/2,retune:0,jam:0,flash:0},true); }
+}
+function render(){
+  const dpr=Math.min(2,window.devicePixelRatio||1), cv=$('c'); const tw=Math.round(W*dpr);
+  if(cv.width!==tw){ cv.width=tw; cv.height=Math.round(H*dpr); }
+  ctx.setTransform(cv.width/W,0,0,cv.height/H,0,0);
+  drawMap(); drawRelay(); drawSweep();
+  for(const t of G.towers) drawTower(t);
+  const sorted=[...G.aliens].sort((a,b)=>a.y-b.y); for(const a of sorted) drawAlien(a);
+  drawFx(); drawOverlayUI();
+  // ping cooldown/legend in canvas corner
+  ctx.fillStyle='rgba(217,211,191,.45)'; ctx.font='500 10px IBM Plex Mono, monospace'; ctx.textAlign='left';
+  ctx.fillText('SWEEP '+Math.round(G.radar/TAU*360)+'°',10,H-10);
+}
+
+/* ======================= UI ======================= */
+function banner(t){ const b=$('banner'); b.textContent=t; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); }
+function feedClear(){ $('feed').innerHTML='<h3>TRANSMISSION LOG</h3>'; }
+function feed(text,hot){ const f=$('feed'); const d=document.createElement('div'); const m=text.match(/^(\[[^\]]+\])\s*(.*)$/);
+  d.innerHTML=m?`<span class="tag">${m[1]}</span> <span class="${hot?'hot':''}">${m[2]}</span>`:text; f.appendChild(d); while(f.children.length>7) f.children[1].remove(); }
+function hud(){
+  $('credits').textContent=G.credits; $('wave').textContent=G.wave+'/'+TOTAL_WAVES;
+  const pct=clamp(G.integrity/START_INTEGRITY,0,1); $('barFill').style.width=(pct*100)+'%'; $('barFill').style.background=pct>.5?'#7dff9a':pct>.25?'#d1a13d':'#d1382c';
+  $('next').textContent=G.phase==='prep'&&G.wave<TOTAL_WAVES?Math.ceil(G.countdown)+'s':G.phase==='wave'?'IN PROGRESS':'—';
+  renderForecast();
+  $('bGo').disabled=!(G.phase==='prep'&&G.wave<TOTAL_WAVES);
+  const cd=Math.max(0,G.pingReadyAt-G.T); $('pingCd').textContent=cd>0?Math.ceil(cd)+'s':'(R)'; $('bPing').disabled=cd>0;
+  $('bSpeed').textContent=G.speed+'×'; $('bPause').textContent=G.paused?'RESUME':'PAUSE'; $('bMute').style.opacity=muted?.45:1;
+  for(const b of document.querySelectorAll('.tb')){ const d=TOWER_DEFS[b.dataset.k]; b.disabled=G.credits<d.cost; }
+}
+let fcKey='';
+function renderForecast(){
+  const el=$('fc'); if(!el) return;
+  const upcoming=(G.phase==='prep'&&G.wave<TOTAL_WAVES)?genWave(G.wave+1):null;
+  const key=upcoming?(G.wave+1)+':'+upcoming.length:'none'; if(key===fcKey) return; fcKey=key;
+  if(!upcoming){ el.innerHTML='<span style="color:#6c7266;font-size:10px">—</span>'; return; }
+  const cnt={A:0,B:0,C:0}; for(const e of upcoming) cnt[e.band]++; const tot=upcoming.length||1;
+  el.innerHTML=BK.map(b=>`<div title="${BANDS[b].name} ${Math.round(100*cnt[b]/tot)}%" style="flex:${Math.max(0.02,cnt[b]/tot)};background:${BANDS[b].color};opacity:.85"></div>`).join('');
+}
+function renderBuild(){
+  const el=$('build'); el.innerHTML='';
+  TOWER_ORDER.forEach((k,i)=>{ const d=TOWER_DEFS[k]; const b=document.createElement('button'); b.className='tb'+(G.build===k?' sel':''); b.dataset.k=k;
+    b.innerHTML=`<i>${i+1}</i><b>${d.name}</b><small>${d.cost} CR</small>`; b.onclick=()=>selectBuild(k); el.appendChild(b); });
+}
+function selectBuild(k){ if(G.credits<TOWER_DEFS[k].cost&&G.build!==k){ SFX.deny(); } G.build=G.build===k?null:k; G.sel=null; renderBuild(); renderPanel(); hud(); }
+function renderPanel(){
+  const p=$('panel');
+  if(G.sel){
+    const tw=G.sel,d=TOWER_DEFS[tw.key];
+    const stats=d.dmg?`DMG ${Math.round(tw.dmg)} · RATE ${(1/tw.rate).toFixed(1)}/s · RANGE ${Math.round(tw.range/CELL*10)/10}`:tw.key==='jammer'?`SLOW ${Math.round(tw.slow*100)}% · RANGE ${Math.round(tw.range/CELL*10)/10}`:`LIGHT RADIUS ${Math.round(tw.range/CELL*10)/10}`;
+    p.innerHTML=`<h3>SELECTED</h3><div class="name">${d.name} <span style="color:#d1a13d">LV${tw.level}</span></div><p>${stats}</p>
+      ${d.tune?`<div class="row">${BK.map((k,i)=>`<button class="band ${tw.band===k?'on':''}" data-b="${k}" style="color:${BANDS[k].color}">${BANDS[k].name}<br><span style="color:#6c7266;font-size:10px">${'QWE'[i]}</span></button>`).join('')}</div>
+      <p style="font-size:11px;color:#6c7266">Match the contact's band: ×${MATCH}. Mismatch: ×${MISMATCH}. Retuning takes ${1.2}s offline.</p>`:''}
+      <div class="row"><button class="btn" id="bUp" ${tw.level>=3?'disabled':''}>UPGRADE ${tw.level>=3?'(MAX)':upgradeCost(tw)+' CR'} (U)</button><button class="btn" id="bSell">SELL ${sellValue(tw)} CR (X)</button></div>`;
+    p.querySelectorAll('.band').forEach(b=>b.onclick=()=>{ tuneTower(tw,b.dataset.b); renderPanel(); });
+    const up=$('bUp'); if(up) up.onclick=()=>{ if(upgradeTower(tw)){ renderPanel(); hud(); } };
+    $('bSell').onclick=()=>{ sellTower(tw); renderPanel(); hud(); };
+  }else if(G.build){
+    const d=TOWER_DEFS[G.build];
+    p.innerHTML=`<h3>BUILD</h3><div class="name">${d.name}</div><p>${d.desc}</p><p style="color:#d1a13d">${d.cost} CR · range ${Math.round(d.range/CELL*10)/10} cells</p><p style="font-size:11px;color:#6c7266">Click a free cell to place. Esc to cancel.</p>`;
+  }else{
+    p.innerHTML=`<h3>OPERATOR BRIEF</h3><p><b style="color:#d1a13d">1.</b> Aliens broadcast on a band. <span style="color:${BANDS.A.color}">ALPHA</span> <span style="color:${BANDS.B.color}">BRAVO</span> <span style="color:${BANDS.C.color}">CHARLIE</span>. Tune each tower to match: ×2 damage, otherwise ×½.</p>
+      <p><b style="color:#d1a13d">2.</b> You only see what the radar sweep, a beacon, a ping or contact lights up. Towers can only shoot lit contacts.</p>
+      <p><b style="color:#d1a13d">3.</b> Pick a tower below, click a free cell. Click a tower to tune or upgrade it.</p>`;
+  }
+}
+function openCard(html){ $('card').innerHTML=html; $('overlay').classList.add('on'); G.paused=true; }
+function closeCard(){ $('overlay').classList.remove('on'); G.paused=false; }
+function showLog(){
+  const items=G.log.map(l=>{ const m=l.match(/^(\[[^\]]+\])\s*(.*)$/); return `<div><span class="tag">${m?m[1]:''}</span> ${m?m[2]:l}</div>`; }).join('');
+  openCard(`<h2>TRANSMISSION <span>LOG</span></h2><div class="sub">UNVERIFIED // ${G.log.length} ENTRIES FILED THIS WATCH</div><div class="term">${items||'<div>Nothing filed yet.</div>'}</div><button class="btn" id="closeLog">CLOSE (L)</button>`);
+  $('closeLog').onclick=()=>{ closeCard(); };
+}
+function showTitle(){
+  G.phase='title';
+  openCard(`<h2>HOLD THE <span>FREQUENCY</span></h2><div class="sub">SIGNAL ROOM 9 // WATCH PROTOCOL // BEST: WAVE ${G.best}/${TOTAL_WAVES}</div>
+    <p>Something is transmitting into Signal Room 9. The room does not shoot back. You do.</p>
+    <ul>
+      <li><b style="color:#d1a13d">TUNE.</b> Contacts broadcast on <span style="color:${BANDS.A.color}">ALPHA</span>, <span style="color:${BANDS.B.color}">BRAVO</span> or <span style="color:${BANDS.C.color}">CHARLIE</span>. A matched tower hits for double; a mismatched one for half. Some contacts change band mid-stride.</li>
+      <li><b style="color:#d1a13d">LISTEN.</b> The radar sweep lights only part of the map at a time. You can only shoot what is lit. Beacons light their surroundings and expose cloaked contacts. <b>PING</b> lights everything for a moment.</li>
+      <li><b style="color:#d1a13d">HOLD.</b> 20 waves. Every cleared wave files a transmission log entry. Do not let them reach the room.</li>
+    </ul>
+    <p style="color:#6c7266;font-size:11px">Keys: 1–6 build · Q/W/E tune · U upgrade · X sell · Space send wave · R ping · F speed · P pause · L log · M sound</p>
+    <div class="row" id="diffRow" style="margin:0 0 6px">${Object.keys(DIFF).map(k=>`<button class="band ${G.diff===k?'on':''}" data-d="${k}" style="color:#d9d3bf">${DIFF[k].name}<br><span style="color:#6c7266;font-size:10px">${DIFF[k].note}</span></button>`).join('')}</div>
+    <button class="btn hot" id="begin">BEGIN WATCH</button>`);
+  document.querySelectorAll('#diffRow .band').forEach(b=>b.onclick=()=>{ G.diff=b.dataset.d; localStorage.setItem('sr9.htf.diff',G.diff); document.querySelectorAll('#diffRow .band').forEach(x=>x.classList.toggle('on',x===b)); });
+  $('begin').onclick=()=>{ closeCard(); resetGame(); if(AC&&AC.state==='suspended') AC.resume(); tone(220,0.3,'triangle',0.05,100); };
+}
+
+/* ======================= input ======================= */
+function cellFromEvent(e){ const r=$('c').getBoundingClientRect(); const x=(e.clientX-r.left)*W/r.width, y=(e.clientY-r.top)*H/r.height; return {x,y,c:Math.floor(x/CELL),r:Math.floor(y/CELL)}; }
+$('c').addEventListener('pointermove',e=>{ const p=cellFromEvent(e); G.hover=(p.c>=0&&p.r>=0&&p.c<COLS&&p.r<ROWS)?{c:p.c,r:p.r}:null; });
+$('c').addEventListener('pointerleave',()=>{ G.hover=null; });
+$('c').addEventListener('pointerdown',e=>{
+  if(G.phase==='title'||G.phase==='over') return;
+  const p=cellFromEvent(e); if(p.c<0||p.r<0||p.c>=COLS||p.r>=ROWS) return;
+  if(e.button===2){ G.build=null; G.sel=null; renderBuild(); renderPanel(); return; }
+  const tw=G.towers.find(t=>t.c===p.c&&t.r===p.r);
+  if(G.build&&!tw){
+    const placed=placeTower(G.build,p.c,p.r,G.lastBand||'A');
+    if(placed){ if(G.credits<TOWER_DEFS[G.build].cost) G.build=null; renderBuild(); hud(); } else SFX.deny();
+    return;
+  }
+  G.build=null; G.sel=tw||null; renderBuild(); renderPanel();
+});
+$('c').addEventListener('contextmenu',e=>e.preventDefault());
+function togglePause(){ if($('overlay').classList.contains('on')) return; G.paused=!G.paused; hud(); }
+$('bGo').onclick=()=>startWave(); $('bPing').onclick=()=>ping();
+$('bSpeed').onclick=()=>{ G.speed=G.speed===1?2:G.speed===2?3:1; hud(); };
+$('bPause').onclick=togglePause; $('bLog').onclick=()=>{ if($('overlay').classList.contains('on')) closeCard(); else showLog(); };
+$('bMute').onclick=()=>{ muted=!muted; hud(); };
+window.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return; const k=e.key.toLowerCase();
+  if(G.phase==='title') return;
+  if(k==='l'){ if($('overlay').classList.contains('on')&&G.phase!=='over') closeCard(); else if(G.phase!=='over') showLog(); return; }
+  if($('overlay').classList.contains('on')) return;
+  if(k>='1'&&k<='6'){ selectBuild(TOWER_ORDER[+k-1]); return; }
+  if(k==='escape'){ G.build=null; G.sel=null; renderBuild(); renderPanel(); }
+  else if(k===' '){ e.preventDefault(); startWave(); }
+  else if(k==='r') ping(); else if(k==='p') togglePause(); else if(k==='f'){ G.speed=G.speed===1?2:G.speed===2?3:1; hud(); } else if(k==='m'){ muted=!muted; hud(); }
+  else if(G.sel){
+    if('qwe'.includes(k)&&k.length===1){ tuneTower(G.sel,BK['qwe'.indexOf(k)]); renderPanel(); }
+    else if(k==='u'){ if(upgradeTower(G.sel)){ renderPanel(); hud(); } }
+    else if(k==='x'||k==='delete'||k==='backspace'){ sellTower(G.sel); renderPanel(); hud(); }
+  }
+});
+
+/* ======================= main loop ======================= */
+let last=performance.now(), hudT=0;
+function frame(now){
+  const dt=Math.min(0.1,(now-last)/1000); last=now;
+  if(!G.paused&&G.phase!=='title'){ const steps=G.speed; for(let i=0;i<steps;i++) update(dt); }
+  hudT-=dt; if(hudT<=0){ hud(); hudT=0.1; }
+  render(); requestAnimationFrame(frame);
+}
+// boot sequence, then the title card
+const bootLines=['ESTABLISHING SECURE LINK…','STATION ACTIVE — LISTENING','CARRIER DETECTED. NO SOURCE ON FILE.'];
+let bi=0; (function bootStep(){ $('bootText').textContent=bootLines[bi]; bi++; if(bi<=bootLines.length) setTimeout(bootStep,520); else { $('boot').classList.add('off'); showTitle(); } })();
+feedClear(); renderBuild(); renderPanel(); hud(); requestAnimationFrame(frame);
+
+/* test/bot hook */
+window.HTF={TUNE,upgradeCost,G,update,placeTower,upgradeTower,tuneTower,startWave,ping,resetGame,genWave,sellTower,BLOCK,TOWER_DEFS,ALIEN_DEFS,posAt,PATH_LEN,CELL,COLS,ROWS,BK,detectable,TOTAL_WAVES};
+</script>
+</body>
+</html>
