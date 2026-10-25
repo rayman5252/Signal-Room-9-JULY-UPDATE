@@ -473,6 +473,34 @@
   @media (prefers-reduced-motion: reduce){
     *{ animation: none !important; transition: none !important; }
   }
+
+  /* ---------- secret directive button ---------- */
+  .directive{ max-width:980px; margin:0 auto; padding:8px 24px 8px; }
+  .directive-btn{
+    position:relative; display:flex; align-items:center; gap:18px;
+    width:100%; padding:20px 26px; text-decoration:none; overflow:hidden;
+    background: linear-gradient(180deg, rgba(209,56,44,0.10), rgba(0,0,0,0.35)), var(--panel);
+    border:1px solid var(--rust); color:var(--paper);
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.6), 0 0 26px rgba(209,56,44,0.14);
+    transition: border-color .2s ease, box-shadow .2s ease, transform .12s ease;
+  }
+  .directive-btn::before{
+    content:''; position:absolute; left:0; right:0; top:0; height:40%;
+    background: linear-gradient(180deg, rgba(209,161,61,0.14), transparent);
+    animation: scan 4.5s linear infinite; pointer-events:none;
+  }
+  .directive-btn:hover{ border-color:var(--signal-red); transform:translateY(-1px);
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.6), 0 0 40px rgba(209,56,44,0.4); }
+  .directive-btn:active{ transform:translateY(1px); }
+  .directive-dot{ flex:0 0 auto; width:12px; height:12px; border-radius:50%;
+    background:var(--signal-red); box-shadow:0 0 12px var(--signal-red); animation:pulse 1.4s infinite ease-in-out; }
+  .directive-text{ flex:1 1 auto; min-width:0; position:relative; z-index:1; }
+  .directive-tag{ display:block; font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--amber); margin-bottom:6px; }
+  .directive-title{ display:block; font-family:'Black Ops One','IBM Plex Mono',monospace; letter-spacing:2px;
+    font-size:clamp(1rem,3.6vw,1.45rem); line-height:1.3; text-shadow:1.5px 0 rgba(209,56,44,0.7), -1.5px 0 rgba(64,220,255,0.45); }
+  .directive-go{ flex:0 0 auto; position:relative; z-index:1; font-size:11px; letter-spacing:3px; color:var(--signal-red); white-space:nowrap; }
+  .directive-btn:hover .directive-go{ color:var(--amber); }
+  @media (max-width:600px){ .directive-go{ display:none; } .directive-btn{ padding:18px; } }
 </style>
 </head>
 <body>
@@ -566,6 +594,39 @@
     </div>
   </section>
 
+  <div class="directive">
+    <a class="directive-btn" href="hold-the-frequency/" aria-label="Open classified transmission">
+      <span class="directive-dot"></span>
+      <span class="directive-text">
+        <span class="directive-tag">// Incoming signal · <span id="directive-code">BRV-0000-00</span></span>
+        <span class="directive-title">Site Bravo Activity</span>
+      </span>
+      <span class="directive-go">OPEN FILE &#9654;</span>
+    </a>
+  </div>
+
+  <script>
+  (function(){
+    var el=document.getElementById('directive-code'); if(!el) return;
+    var A='ABCDEFGHJKLMNPQRSTUVWXYZ', D='0123456789';
+    function pick(s){ return s.charAt(Math.floor(Math.random()*s.length)); }
+    function makeCode(){ return 'BRV-'+pick(D)+pick(D)+pick(D)+pick(D)+'-'+pick(A)+pick(D); }
+    if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches){ el.textContent=makeCode(); return; }
+    function lock(){
+      var target=makeCode(), i=0;
+      var t=setInterval(function(){
+        var out='';
+        for(var k=0;k<target.length;k++){ var c=target.charAt(k); out+= (k<i||c==='-') ? c : (/[A-Z]/.test(c)?pick(A):pick(D)); }
+        el.textContent=out; i+=0.5;
+        if(i>=target.length){ clearInterval(t); el.textContent=target; setTimeout(scramble,1800+Math.random()*1400); }
+      },70);
+    }
+    function scramble(){
+      var n=0, t=setInterval(function(){ el.textContent='BRV-'+pick(D)+pick(D)+pick(D)+pick(D)+'-'+pick(A)+pick(D); if(++n>8){ clearInterval(t); lock(); } },60);
+    }
+    lock();
+  })();
+  </script>
   <footer>
     SIGNAL ROOM 9 — ALL TRANSMISSIONS UNVERIFIED
     <div class="stamp">CLASSIFIED · EYES ONLY</div>
