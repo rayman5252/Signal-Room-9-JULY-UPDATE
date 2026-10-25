@@ -61,6 +61,8 @@
   .tb:hover:not(:disabled){border-color:var(--amber)}
   .tb.sel{border-color:var(--green);box-shadow:0 0 10px rgba(125,255,154,.25) inset}
   .tb:disabled{opacity:.45}
+  .tb.locked small{color:var(--muted)}
+  .tb{min-width:98px}
   #overlay{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(5,7,6,.9);padding:16px}
   #overlay.on{display:flex}
   .card{max-width:620px;width:100%;max-height:92vh;overflow:auto;background:var(--panel);border:1px solid var(--edge);padding:26px 28px;position:relative}
@@ -98,6 +100,7 @@
     <div class="stat"><small>NEXT</small><b id="next">—</b></div>
     <div class="stat" title="Intercepted forecast: band mix of the next wave"><small>FORECAST</small><div id="fc" style="display:flex;gap:2px;width:96px;height:14px;margin-top:2px"></div></div>
     <div class="grow"></div>
+    <button class="btn" id="bDrone" title="Recon drone: one per wave. Press again to detonate (D)">DRONE</button>
     <button class="btn" id="bPing" title="Light the whole map for a moment (R)">PING <span id="pingCd"></span></button>
     <button class="btn hot" id="bGo" title="Send the next wave now (Space)">SEND WAVE</button>
     <button class="btn" id="bSpeed" title="Speed (F)">1×</button>
@@ -139,9 +142,16 @@ const TOWER_DEFS={
   coil:  {name:'ARC COIL',cost:110,range:132,rate:0.85,dmg:12,chain:2,tune:true,desc:'Short-range lightning that jumps to two more contacts.'},
   burst: {name:'BURST EMITTER',cost:125,range:175,rate:1.35,dmg:20,splash:72,tune:true,rot:true,desc:'Lobs a pulse that damages everything around the impact, lit or not.'},
   jammer:{name:'JAMMER',cost:70,range:142,slow:0.5,tune:false,desc:'No damage. Drags every contact in range to a crawl, whatever their band.'},
-  beacon:{name:'RADAR BEACON',cost:80,range:190,tune:false,desc:'Permanently lights its area and exposes cloaked contacts. Does not shoot.'}
+  beacon:{name:'RADAR BEACON',cost:80,range:190,tune:false,desc:'Permanently lights its area and exposes cloaked contacts. Does not shoot.'},
+  /* requisitioned turrets: approved as the watch gets harder. Not tuned: they hit every band for x1. */
+  sentry:{name:'SENTRY GUN',cost:75,range:140,rate:0.22,dmg:6,tune:false,rot:true,unlock:4,desc:'Automated gun turret. Needs no tuning: full damage on every band. Fast and cheap.'},
+  railgun:{name:'RAILGUN',cost:210,range:340,rate:2.6,dmg:110,tune:false,rot:true,pierce:true,unlock:9,desc:'Fires a slug through everything lit in a line. Targets the toughest contact. No tuning needed.'},
+  flak:  {name:'FLAK PYLON',cost:150,range:125,rate:1.1,dmg:12,tune:false,pulse:true,unlock:14,desc:'Pulses a shockwave at everything in range, lit or not. Shreds swarms and cloaked contacts.'}
 };
-const TOWER_ORDER=['dipole','dish','coil','burst','jammer','beacon'];
+const TOWER_ORDER=['dipole','dish','coil','burst','jammer','beacon','sentry','railgun','flak'];
+const isUnlocked=k=>G.wave>=((TOWER_DEFS[k].unlock||1)-1);
+/* recon drone: one per wave. Flies the conduit outward; detonate to wipe every contact on the map, lit or not. */
+const DRONE={unlock:2,speed:250,light:95,pay:0.4,bossHit:0.6};
 
 const ALIEN_DEFS={
   drifter: {name:'DRIFTER',hp:36,spd:56,reward:6,r:11,leak:1},
@@ -153,7 +163,7 @@ const ALIEN_DEFS={
   howler:  {name:'HOWLER',hp:85,spd:48,reward:14,r:12,leak:2,howl:6.5},
   listener:{name:'THE LISTENER',hp:3200,spd:26,reward:140,r:27,leak:99,hop:5,boss:true}
 };
-const TUNE={hpSlope:0.6,hpQuad:0.06,budgetBase:5,budgetLin:4.2,budgetQuad:0.2,rewardGrow:0.04,waveBonus:20,waveBonusLin:3,upgradeMul:0.75,sellBack:0.7,bossHp:2};
+const TUNE={hpSlope:0.68,hpQuad:0.07,budgetBase:5,budgetLin:4.2,budgetQuad:0.2,rewardGrow:0.04,waveBonus:20,waveBonusLin:3,upgradeMul:0.75,sellBack:0.7,bossHp:2};
 const DIFF={rookie:{name:'ROOKIE',hp:0.72,credits:240,note:'Softer contacts, extra starting credits.'},standard:{name:'STANDARD',hp:1,credits:170,note:'The watch as intended.'},veteran:{name:'VETERAN',hp:1.22,credits:150,note:'Tougher contacts. Tune fast.'}};
 const UNLOCK={drifter:1,skitter:2,hulk:3,hopper:5,shade:7,splitter:8,howler:10};
 const WCOST={drifter:1,skitter:.8,hulk:4,hopper:1.6,shade:2,splitter:2.4,howler:3};
@@ -162,6 +172,7 @@ const WCOST={drifter:1,skitter:.8,hulk:4,hopper:1.6,shade:2,splitter:2.4,howler:
 const ART_FILES={
   tower_dipole:'assets/tower_dipole.png',tower_dish:'assets/tower_dish.png',tower_coil:'assets/tower_coil.png',
   tower_burst:'assets/tower_burst.png',tower_jammer:'assets/tower_jammer.png',tower_beacon:'assets/tower_beacon.png',
+  tower_sentry:'assets/tower_sentry.png',tower_railgun:'assets/tower_railgun.png',tower_flak:'assets/tower_flak.png',drone:'assets/drone.png',
   alien_drifter:'assets/alien_drifter.png',alien_skitter:'assets/alien_skitter.png',alien_hulk:'assets/alien_hulk.png',
   alien_hopper:'assets/alien_hopper.png',alien_shade:'assets/alien_shade.png',alien_splitter:'assets/alien_splitter.png',
   alien_howler:'assets/alien_howler.png',alien_listener:'assets/alien_listener.png',
@@ -227,7 +238,7 @@ function tone(f,d,type='square',v=0.04,slide=0,delay=0){
   }catch(e){}
 }
 const SFX={
-  shot:k=>tone({dipole:820,dish:240,coil:520,burst:180}[k]||600,k==='dish'?0.28:0.09,k==='coil'?'sawtooth':'square',0.025,-300),
+  shot:k=>tone({dipole:820,dish:240,coil:520,burst:180,sentry:960,railgun:140,flak:260}[k]||600,(k==='dish'||k==='railgun')?0.28:0.09,k==='coil'?'sawtooth':'square',0.025,-300),
   kill:()=>tone(300,0.14,'triangle',0.05,-180),
   leak:()=>{ tone(110,0.4,'sawtooth',0.09,-60); },
   build:()=>{ tone(330,0.08,'triangle',0.05); tone(495,0.1,'triangle',0.05,0,0.08); },
@@ -237,7 +248,9 @@ const SFX={
   clear:()=>{ tone(440,0.12,'triangle',0.05); tone(660,0.2,'triangle',0.05,0,0.12); },
   ping:()=>tone(300,0.6,'sine',0.06,900),
   howl:()=>tone(800,0.5,'sawtooth',0.05,-500),
-  deny:()=>tone(120,0.12,'square',0.04)
+  deny:()=>tone(120,0.12,'square',0.04),
+  drone:()=>{ tone(520,0.25,'triangle',0.04,400); tone(780,0.2,'triangle',0.03,300,0.12); },
+  nuke:()=>{ tone(70,1.4,'sawtooth',0.12,-40); tone(140,1.0,'square',0.07,-90); tone(900,0.5,'sine',0.05,-800); }
 };
 
 /* ======================= game state ======================= */
@@ -245,14 +258,15 @@ const G={
   phase:'title', wave:0, credits:0, integrity:START_INTEGRITY, T:0, speed:1, paused:false,
   towers:[], aliens:[], fx:[], queue:[], waveT:0, countdown:0, pingUntil:0, pingReadyAt:0,
   radar:0, sel:null, build:null, hover:null, nextId:1, cleared:false, lastLeakAt:-9, kills:0, log:[], hpMul:1,
-  lastBand:'A', best:+localStorage.getItem('sr9.htf.best')||0, diff:localStorage.getItem('sr9.htf.diff')||'standard'
+  lastBand:'A', drone:{active:false,used:false,d:0,x:0,y:0,ang:0},
+  best:+localStorage.getItem('sr9.htf.best')||0, diff:localStorage.getItem('sr9.htf.diff')||'standard'
 };
 if(!DIFF[G.diff]) G.diff='standard';
 let bannerTimer=null;
 
 function resetGame(){
   Object.assign(G,{phase:'prep',wave:0,credits:DIFF[G.diff].credits,integrity:START_INTEGRITY,T:0,towers:[],aliens:[],fx:[],queue:[],waveT:0,
-    countdown:35,pingUntil:0,pingReadyAt:0,radar:0,sel:null,build:null,hover:null,nextId:1,cleared:false,kills:0,log:[],paused:false});
+    countdown:35,pingUntil:0,pingReadyAt:0,drone:{active:false,used:false,d:0,x:0,y:0,ang:0},radar:0,sel:null,build:null,hover:null,nextId:1,cleared:false,kills:0,log:[],paused:false});
   feedClear(); feed(LORE_INTRO,true); G.log.push(LORE_INTRO);
   renderPanel(); renderBuild(); hud();
 }
@@ -265,7 +279,7 @@ const upgradeCost=tw=>Math.round(TOWER_DEFS[tw.key].cost*TUNE.upgradeMul*tw.leve
 const sellValue=tw=>Math.round(tw.invested*TUNE.sellBack);
 function cellFree(c,r){ return c>=0&&r>=0&&c<COLS&&r<ROWS&&!BLOCK.has(c+','+r)&&!G.towers.some(t=>t.c===c&&t.r===r); }
 function placeTower(key,c,r,band){
-  const d=TOWER_DEFS[key]; if(!d||!cellFree(c,r)||G.credits<d.cost) return null;
+  const d=TOWER_DEFS[key]; if(!d||!isUnlocked(key)||!cellFree(c,r)||G.credits<d.cost) return null;
   G.credits-=d.cost;
   const tw={id:G.nextId++,key,c,r,x:(c+.5)*CELL,y:(r+.5)*CELL,band:band||'A',level:1,cd:0.2,retune:0,jam:0,ang:-Math.PI/2,invested:d.cost,flash:0};
   Object.assign(tw,towerStats(tw)); G.towers.push(tw); SFX.build(); return tw;
@@ -284,18 +298,18 @@ function spawnAlien(type,band,d=0,hpMul=G.hpMul,scale=1){
 }
 const detectable=a=>a.def.cloak?a.revealUntil>G.T:a.litUntil>G.T;
 function damageAlien(a,base,tw,color){
-  const mult=a.band===tw.band?MATCH:MISMATCH; const dmg=base*mult;
+  const tuned=TOWER_DEFS[tw.key].tune; const mult=!tuned?1:a.band===tw.band?MATCH:MISMATCH; const dmg=base*mult;
   a.hp-=dmg; a.flash=0.12;
   G.fx.push({k:'txt',x:a.x+rnd(-8,8),y:a.y-a.def.r-4,t:0.7,s:mult>1?Math.round(dmg)+'!':String(Math.round(dmg)),c:mult>1?BANDS[tw.band].color:'#8a8f80',big:mult>1});
   if(a.hp<=0&&!a.dead) killAlien(a);
 }
-function killAlien(a){
+function killAlien(a,nuke){
   a.dead=true; G.kills++;
-  const reward=Math.round(a.def.reward*(1+TUNE.rewardGrow*(G.wave-1))); G.credits+=reward;
+  const reward=Math.round(a.def.reward*(1+TUNE.rewardGrow*(G.wave-1))*(nuke?DRONE.pay:1)); G.credits+=reward;
   G.fx.push({k:'ring',x:a.x,y:a.y,t:0.4,r:a.def.r,c:BANDS[a.band].color});
   G.fx.push({k:'txt',x:a.x,y:a.y-18,t:0.8,s:'+'+reward,c:'#d1a13d'});
   SFX.kill();
-  if(a.def.split){ for(let i=0;i<a.def.split;i++){ const s=spawnAlien('skitter',BK[Math.floor(Math.random()*3)],Math.max(0,a.d-i*14),G.hpMul,0.9); s.litUntil=G.T+0.8; } }
+  if(a.def.split&&!nuke){ for(let i=0;i<a.def.split;i++){ const s=spawnAlien('skitter',BK[Math.floor(Math.random()*3)],Math.max(0,a.d-i*14),G.hpMul,0.9); s.litUntil=G.T+0.8; } }
 }
 
 /* ---------- waves ---------- */
@@ -321,14 +335,18 @@ function genWave(w){
 function startWave(){
   if(G.phase!=='prep'||G.wave>=TOTAL_WAVES) return false;
   if(G.countdown>1) G.credits+=Math.floor(G.countdown);      // early-send bonus
-  G.wave++; G.hpMul=(1+TUNE.hpSlope*(G.wave-1)+TUNE.hpQuad*(G.wave-1)*(G.wave-1))*DIFF[G.diff].hp; G.queue=genWave(G.wave); G.waveT=0; G.phase='wave'; G.countdown=0;
+  G.drone.used=false; G.wave++; G.hpMul=(1+TUNE.hpSlope*(G.wave-1)+TUNE.hpQuad*(G.wave-1)*(G.wave-1))*DIFF[G.diff].hp; G.queue=genWave(G.wave); G.waveT=0; G.phase='wave'; G.countdown=0;
   banner(G.wave===TOTAL_WAVES?'THE LISTENER IS COMING':'WAVE '+G.wave+' INCOMING'); SFX.wave(); hud(); renderBuild();
   return true;
 }
 function waveCleared(){
   G.phase='prep'; const bonus=TUNE.waveBonus+TUNE.waveBonusLin*G.wave; G.credits+=bonus;
   const entry=LORE[G.wave-1]; G.log.push(entry); feed(entry,true);
+  if(G.drone.active){ G.drone.active=false; }           // an unspent drone returns to the rack
   banner('WAVE '+G.wave+' CLEARED  +'+bonus); SFX.clear();
+  const news=[]; for(const k of TOWER_ORDER){ if(TOWER_DEFS[k].unlock===G.wave+1) news.push(TOWER_DEFS[k].name); }
+  if(G.wave+1===DRONE.unlock) news.push('RECON DRONE');
+  if(news.length&&G.wave<TOTAL_WAVES){ const m='[REQUISITION] Approved for the next watch: '+news.join(' + ')+'.'; G.log.push(m); feed(m,true); setTimeout(()=>banner('NEW: '+news.join(' + ')),1900); }
   if(G.wave>=TOTAL_WAVES){ win(); return; }
   G.countdown=16; renderBuild();
 }
@@ -356,9 +374,12 @@ function update(dt){
         if(tw.key==='beacon'){ if(d2<tw.range*tw.range){ lit=true; reveal=true; } }
         else if(d2<CONTACT*CONTACT){ lit=true; if(d2<CONTACT_REVEAL*CONTACT_REVEAL) reveal=true; } }
     }
+    if(G.drone.active){ const dx=a.x-G.drone.x,dy=a.y-G.drone.y; if(dx*dx+dy*dy<DRONE.light*DRONE.light){ lit=true; reveal=true; } }
     if(reveal){ a.litUntil=Math.max(a.litUntil,G.T+0.5); a.revealUntil=G.T+0.55; }
     else if(lit&&!a.def.cloak) a.litUntil=Math.max(a.litUntil,G.T+(pingOn?0.6:GHOST));
   }
+  // recon drone
+  if(G.drone.active){ const dr=G.drone; dr.d-=DRONE.speed*dt; const p=posAt(Math.max(0,dr.d)); dr.x=p.x; dr.y=p.y; dr.ang=p.ang+Math.PI; if(dr.d<=0) detonateDrone(); }
   // towers
   for(const tw of G.towers){
     tw.retune=Math.max(0,tw.retune-dt); tw.jam=Math.max(0,tw.jam-dt); tw.flash=Math.max(0,tw.flash-dt);
@@ -366,12 +387,20 @@ function update(dt){
     if(tw.key==='jammer'){ for(const a of G.aliens){ const dx=a.x-tw.x,dy=a.y-tw.y; if(dx*dx+dy*dy<tw.range*tw.range){ a.slowUntil=G.T+0.25; a.slow=Math.max(a.slow,tw.slow); } } continue; }
     if(tw.key==='beacon') continue;
     tw.cd-=dt; if(tw.cd>0) continue;
+    if(tw.key==='flak'){
+      let hit=0; for(const a of G.aliens){ if(a.dead) continue; const dx=a.x-tw.x,dy=a.y-tw.y; if(dx*dx+dy*dy<=tw.range*tw.range){ hit++; a.litUntil=Math.max(a.litUntil,G.T+0.35); damageAlien(a,tw.dmg,tw,'#d9d3bf'); } }
+      if(hit){ tw.cd=tw.rate; tw.flash=0.12; SFX.shot('flak'); G.fx.push({k:'ring',x:tw.x,y:tw.y,t:0.45,r:tw.range,c:'#d9d3bf',grow:true}); } else tw.cd=0.15;
+      continue;
+    }
     let best=null;
-    for(const a of G.aliens){ if(a.dead||!detectable(a)) continue; const dx=a.x-tw.x,dy=a.y-tw.y; if(dx*dx+dy*dy>tw.range*tw.range) continue; if(!best||a.d>best.d) best=a; }
+    for(const a of G.aliens){ if(a.dead||!detectable(a)) continue; const dx=a.x-tw.x,dy=a.y-tw.y; if(dx*dx+dy*dy>tw.range*tw.range) continue; if(tw.key==='railgun'){ if(!best||a.hp>best.hp) best=a; } else if(!best||a.d>best.d) best=a; }
     if(!best) continue;
     tw.cd=tw.rate; tw.ang=Math.atan2(best.y-tw.y,best.x-tw.x); tw.flash=0.1; SFX.shot(tw.key);
-    const col=BANDS[tw.band].color;
-    if(tw.key==='coil'){
+    const col=TOWER_DEFS[tw.key].tune?BANDS[tw.band].color:'#d9d3bf';
+    if(tw.key==='railgun'){
+      const ux=Math.cos(tw.ang),uy=Math.sin(tw.ang); G.fx.push({k:'beam',x1:tw.x,y1:tw.y,x2:tw.x+ux*tw.range,y2:tw.y+uy*tw.range,t:0.22,c:'#9fe8ff',w:3.5});
+      for(const a of G.aliens){ if(a.dead||!detectable(a)) continue; const rx=a.x-tw.x,ry=a.y-tw.y,pr=rx*ux+ry*uy; if(pr<0||pr>tw.range) continue; if(Math.abs(rx*uy-ry*ux)<=a.def.r+5) damageAlien(a,tw.dmg,tw,col); }
+    }else if(tw.key==='coil'){
       damageAlien(best,tw.dmg,tw,col); let prev=best; const hit=new Set([best]);
       G.fx.push({k:'beam',x1:tw.x,y1:tw.y,x2:best.x,y2:best.y,t:0.12,c:col,w:2,jag:true});
       for(let i=0;i<tw.chain;i++){ let n=null,nd=95*95; for(const a of G.aliens){ if(a.dead||hit.has(a)||!detectable(a)) continue; const dx=a.x-prev.x,dy=a.y-prev.y,d=dx*dx+dy*dy; if(d<nd){ nd=d; n=a; } }
@@ -402,6 +431,26 @@ function update(dt){
   if(G.phase==='wave'&&!G.queue.length&&!G.aliens.length) waveCleared();
 }
 function ping(){ if(G.phase==='title'||G.phase==='over') return false; if(G.T<G.pingReadyAt){ SFX.deny(); return false; } G.pingUntil=G.T+PING_LEN; G.pingReadyAt=G.T+PING_CD; SFX.ping(); G.fx.push({k:'ring',x:CX,y:CY,t:0.9,r:620,c:'#7dff9a',grow:true}); return true; }
+
+function droneReady(){ return G.wave>=DRONE.unlock&&G.phase==='wave'&&!G.drone.used&&!G.drone.active; }
+function toggleDrone(){
+  if(G.phase==='title'||G.phase==='over') return false;
+  if(G.drone.active){ detonateDrone(); return true; }
+  if(!droneReady()){ SFX.deny(); return false; }
+  Object.assign(G.drone,{active:true,used:true,d:PATH_LEN}); const p=posAt(PATH_LEN); G.drone.x=p.x; G.drone.y=p.y; SFX.drone();
+  feed('[DRONE] Recon drone away. It lights what it passes. Detonate when the line is full.',true); hud(); return true;
+}
+function detonateDrone(){
+  const dr=G.drone; if(!dr.active) return; dr.active=false;
+  const x=dr.x,y=dr.y; let n=0;
+  for(const a of [...G.aliens]){ if(a.dead) continue; n++;
+    if(a.def.boss){ a.hp-=a.maxhp*DRONE.bossHit; a.flash=0.4; G.fx.push({k:'txt',x:a.x,y:a.y-30,t:1.2,s:'-'+Math.round(a.maxhp*DRONE.bossHit),c:'#ffffff',big:true}); if(a.hp<=1) a.hp=1; }
+    else killAlien(a,true); }
+  G.aliens=G.aliens.filter(a=>!a.dead);
+  G.fx.push({k:'nuke',x,y,t:1.6,T:1.6}); SFX.nuke();
+  banner(n?'DRONE DETONATED  ·  '+n+' CONTACTS ERASED':'DRONE DETONATED  ·  NOTHING ON THE LINE');
+  feed('[DRONE] Detonation confirmed. '+n+' contacts erased, lit or not.',true); hud();
+}
 
 /* ---------- end states ---------- */
 function lose(){
@@ -481,6 +530,9 @@ function drawTower(tw,ghost){
       case 'coil': for(let i=1;i<=3;i++){ ctx.beginPath(); ctx.arc(0,0,i*6,0,TAU); ctx.stroke(); } ctx.fillStyle=col; ctx.beginPath(); ctx.arc(0,0,3,0,TAU); ctx.fill(); break;
       case 'burst': ctx.beginPath(); for(let i=0;i<6;i++){ const a=i*TAU/6; ctx.lineTo(Math.cos(a)*14,Math.sin(a)*14); } ctx.closePath(); ctx.stroke(); ctx.fillRect(4,-4,16,8); ctx.strokeRect(4,-4,16,8); break;
       case 'jammer': ctx.beginPath(); ctx.moveTo(0,10); ctx.lineTo(0,-12); ctx.stroke(); for(let i=1;i<=2;i++){ ctx.beginPath(); ctx.arc(0,-12,5+i*6,-2.4,-0.74); ctx.stroke(); } break;
+      case 'sentry': ctx.beginPath(); ctx.arc(-2,0,9,0,TAU); ctx.fill(); ctx.stroke(); ctx.fillRect(6,-5,16,3); ctx.fillRect(6,2,16,3); break;
+      case 'railgun': ctx.fillRect(-14,-6,38,12); ctx.strokeRect(-14,-6,38,12); ctx.beginPath(); ctx.moveTo(-14,-10); ctx.lineTo(24,-10); ctx.moveTo(-14,10); ctx.lineTo(24,10); ctx.stroke(); ctx.fillStyle='#9fe8ff'; ctx.fillRect(10,-2,14,4); break;
+      case 'flak': ctx.beginPath(); ctx.arc(0,0,13,0,TAU); ctx.stroke(); for(let i=0;i<4;i++){ const a=i*TAU/4+G.T; ctx.beginPath(); ctx.moveTo(Math.cos(a)*5,Math.sin(a)*5); ctx.lineTo(Math.cos(a)*17,Math.sin(a)*17); ctx.stroke(); } ctx.fillStyle='#d9d3bf'; ctx.beginPath(); ctx.arc(0,0,3,0,TAU); ctx.fill(); break;
       case 'beacon': ctx.beginPath(); ctx.arc(0,0,11,0,TAU); ctx.stroke(); ctx.rotate(G.T*2); glow('#7dff9a',10); ctx.strokeStyle='#7dff9a'; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(18,0); ctx.stroke(); unglow(); break;
     }
   }
@@ -522,6 +574,22 @@ function drawAlien(a){
   }
   unglow(); ctx.restore();
 }
+function drawDrone(){
+  const dr=G.drone; if(!dr.active) return;
+  ctx.save(); ctx.translate(dr.x,dr.y);
+  ctx.strokeStyle='rgba(159,232,255,.55)'; ctx.lineWidth=1.2; ctx.setLineDash([4,5]); ctx.beginPath(); ctx.arc(0,0,DRONE.light,0,TAU); ctx.stroke(); ctx.setLineDash([]);
+  const sprite=ART.drone; const bob=Math.sin(G.T*9)*1.5;
+  if(sprite){ ctx.rotate(dr.ang); ctx.drawImage(sprite,-20,-20+bob,40,40); ctx.rotate(-dr.ang); }
+  else{
+    ctx.translate(0,bob); ctx.fillStyle='#1a1f17'; ctx.strokeStyle='#d9d3bf'; ctx.lineWidth=2; glow('#9fe8ff',10);
+    ctx.beginPath(); ctx.arc(0,0,7,0,TAU); ctx.fill(); ctx.stroke(); unglow();
+    for(let i=0;i<4;i++){ const a=i*TAU/4+Math.PI/4; ctx.beginPath(); ctx.moveTo(Math.cos(a)*7,Math.sin(a)*7); ctx.lineTo(Math.cos(a)*14,Math.sin(a)*14); ctx.stroke();
+      ctx.save(); ctx.translate(Math.cos(a)*15,Math.sin(a)*15); ctx.rotate(G.T*40+i); ctx.beginPath(); ctx.moveTo(-6,0); ctx.lineTo(6,0); ctx.stroke(); ctx.restore(); }
+    ctx.fillStyle='#9fe8ff'; ctx.beginPath(); ctx.arc(3,0,2.2,0,TAU); ctx.fill();
+  }
+  const blink=((G.T*3)%1)<0.5; ctx.fillStyle=blink?'#ffffff':'#d1382c'; glow('#d1382c',10); ctx.beginPath(); ctx.arc(0,-1,3.2,0,TAU); ctx.fill(); unglow();
+  ctx.restore();
+}
 function drawFx(){
   for(const f of G.fx){
     if(f.k==='beam'){ ctx.globalAlpha=clamp(f.t*8,0,1); ctx.strokeStyle=f.c; ctx.lineWidth=f.w; glow(f.c,10); ctx.beginPath(); ctx.moveTo(f.x1,f.y1);
@@ -529,6 +597,10 @@ function drawFx(){
       ctx.lineTo(f.x2,f.y2); ctx.stroke(); unglow(); ctx.globalAlpha=1; }
     else if(f.k==='ring'){ const p=1-f.t/(f.grow?0.6:0.4); const rr=f.grow?f.r*clamp(p*1.3,0,1):f.r+p*14; ctx.globalAlpha=clamp(f.t*2.5,0,1)*0.8; ctx.strokeStyle=f.c; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(f.x,f.y,rr,0,TAU); ctx.stroke(); ctx.globalAlpha=1; }
     else if(f.k==='txt'){ const rise=(0.8-f.t)*22; ctx.globalAlpha=clamp(f.t*3,0,1); ctx.fillStyle=f.c; ctx.font=(f.big?'700 14px':'500 11px')+' IBM Plex Mono, monospace'; ctx.textAlign='center'; ctx.fillText(f.s,f.x,f.y-rise); ctx.globalAlpha=1; }
+    else if(f.k==='nuke'){ const p=1-f.t/f.T, r=40+p*820; ctx.save();
+      const g=ctx.createRadialGradient(f.x,f.y,0,f.x,f.y,r); g.addColorStop(0,'rgba(255,255,255,'+(0.95*(1-p))+')'); g.addColorStop(0.35,'rgba(255,214,120,'+(0.55*(1-p))+')'); g.addColorStop(1,'rgba(255,120,60,0)');
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H); ctx.strokeStyle='rgba(255,255,255,'+(0.9*(1-p))+')'; ctx.lineWidth=6*(1-p)+1; ctx.beginPath(); ctx.arc(f.x,f.y,r*0.85,0,TAU); ctx.stroke();
+      if(p<0.25){ ctx.fillStyle='rgba(255,255,255,'+(0.8*(1-p/0.25))+')'; ctx.fillRect(0,0,W,H); } ctx.restore(); }
     else if(f.k==='flash'){ ctx.fillStyle='rgba(209,56,44,'+(f.t*0.45)+')'; ctx.fillRect(0,0,W,H); }
   }
 }
@@ -547,7 +619,7 @@ function render(){
   drawMap(); drawRelay(); drawSweep();
   for(const t of G.towers) drawTower(t);
   const sorted=[...G.aliens].sort((a,b)=>a.y-b.y); for(const a of sorted) drawAlien(a);
-  drawFx(); drawOverlayUI();
+  drawDrone(); drawFx(); drawOverlayUI();
   // ping cooldown/legend in canvas corner
   ctx.fillStyle='rgba(217,211,191,.45)'; ctx.font='500 10px IBM Plex Mono, monospace'; ctx.textAlign='left';
   ctx.fillText('SWEEP '+Math.round(G.radar/TAU*360)+'°',10,H-10);
@@ -566,7 +638,10 @@ function hud(){
   $('bGo').disabled=!(G.phase==='prep'&&G.wave<TOTAL_WAVES);
   const cd=Math.max(0,G.pingReadyAt-G.T); $('pingCd').textContent=cd>0?Math.ceil(cd)+'s':'(R)'; $('bPing').disabled=cd>0;
   $('bSpeed').textContent=G.speed+'×'; $('bPause').textContent=G.paused?'RESUME':'PAUSE'; $('bMute').style.opacity=muted?.45:1;
-  for(const b of document.querySelectorAll('.tb')){ const d=TOWER_DEFS[b.dataset.k]; b.disabled=G.credits<d.cost; }
+  const bd=$('bDrone'); const dr=G.drone;
+  if(dr.active){ bd.textContent='DETONATE (D)'; bd.className='btn hot'; bd.disabled=false; }
+  else{ bd.className='btn'; if(G.wave<DRONE.unlock){ bd.textContent='DRONE · W'+DRONE.unlock; bd.disabled=true; } else if(dr.used){ bd.textContent='DRONE SPENT'; bd.disabled=true; } else if(G.phase!=='wave'){ bd.textContent='DRONE READY'; bd.disabled=true; } else{ bd.textContent='DRONE (D)'; bd.disabled=false; } }
+  for(const b of document.querySelectorAll('.tb')){ const k=b.dataset.k,d=TOWER_DEFS[k]; b.disabled=G.credits<d.cost||!isUnlocked(k); }
 }
 let fcKey='';
 function renderForecast(){
@@ -580,9 +655,10 @@ function renderForecast(){
 function renderBuild(){
   const el=$('build'); el.innerHTML='';
   TOWER_ORDER.forEach((k,i)=>{ const d=TOWER_DEFS[k]; const b=document.createElement('button'); b.className='tb'+(G.build===k?' sel':''); b.dataset.k=k;
-    b.innerHTML=`<i>${i+1}</i><b>${d.name}</b><small>${d.cost} CR</small>`; b.onclick=()=>selectBuild(k); el.appendChild(b); });
+    const lock=!isUnlocked(k); if(lock) b.classList.add('locked');
+    b.innerHTML=`<i>${i+1}</i><b>${d.name}</b><small>${lock?'UNLOCKS WAVE '+d.unlock:d.cost+' CR'}</small>`; b.onclick=()=>selectBuild(k); el.appendChild(b); });
 }
-function selectBuild(k){ if(G.credits<TOWER_DEFS[k].cost&&G.build!==k){ SFX.deny(); } G.build=G.build===k?null:k; G.sel=null; renderBuild(); renderPanel(); hud(); }
+function selectBuild(k){ if(!isUnlocked(k)){ SFX.deny(); return; } if(G.credits<TOWER_DEFS[k].cost&&G.build!==k){ SFX.deny(); } G.build=G.build===k?null:k; G.sel=null; renderBuild(); renderPanel(); hud(); }
 function renderPanel(){
   const p=$('panel');
   if(G.sel){
@@ -601,7 +677,8 @@ function renderPanel(){
   }else{
     p.innerHTML=`<h3>OPERATOR BRIEF</h3><p><b style="color:#d1a13d">1.</b> Aliens broadcast on a band. <span style="color:${BANDS.A.color}">ALPHA</span> <span style="color:${BANDS.B.color}">BRAVO</span> <span style="color:${BANDS.C.color}">CHARLIE</span>. Tune each tower to match: ×2 damage, otherwise ×½.</p>
       <p><b style="color:#d1a13d">2.</b> You only see what the radar sweep, a beacon, a ping or contact lights up. Towers can only shoot lit contacts.</p>
-      <p><b style="color:#d1a13d">3.</b> Pick a tower below, click a free cell. Click a tower to tune or upgrade it.</p>`;
+      <p><b style="color:#d1a13d">3.</b> Pick a tower below, click a free cell. Click a tower to tune or upgrade it.</p>
+      <p><b style="color:#d1a13d">4.</b> From wave 2: send the DRONE (D) once per wave, then press D again to detonate and wipe the map.</p>`;
   }
 }
 function openCard(html){ $('card').innerHTML=html; $('overlay').classList.add('on'); G.paused=true; }
@@ -618,9 +695,10 @@ function showTitle(){
     <ul>
       <li><b style="color:#d1a13d">TUNE.</b> Contacts broadcast on <span style="color:${BANDS.A.color}">ALPHA</span>, <span style="color:${BANDS.B.color}">BRAVO</span> or <span style="color:${BANDS.C.color}">CHARLIE</span>. A matched tower hits for double; a mismatched one for half. Some contacts change band mid-stride.</li>
       <li><b style="color:#d1a13d">LISTEN.</b> The radar sweep lights only part of the map at a time. You can only shoot what is lit. Beacons light their surroundings and expose cloaked contacts. <b>PING</b> lights everything for a moment.</li>
+      <li><b style="color:#d1a13d">REQUISITION.</b> Command approves new turrets as the watch gets harder: sentry guns, a railgun, flak pylons. And from wave 2 you get <b>one recon drone per wave</b>: it flies the conduit lighting what it passes. Detonate it to erase every contact on the map, lit or not.</li>
       <li><b style="color:#d1a13d">HOLD.</b> 20 waves. Every cleared wave files a transmission log entry. Do not let them reach the room.</li>
     </ul>
-    <p style="color:#6c7266;font-size:11px">Keys: 1–6 build · Q/W/E tune · U upgrade · X sell · Space send wave · R ping · F speed · P pause · L log · M sound</p>
+    <p style="color:#6c7266;font-size:11px">Keys: 1–9 build · Q/W/E tune · U upgrade · X sell · Space send wave · D drone · R ping · F speed · P pause · L log · M sound</p>
     <div class="row" id="diffRow" style="margin:0 0 6px">${Object.keys(DIFF).map(k=>`<button class="band ${G.diff===k?'on':''}" data-d="${k}" style="color:#d9d3bf">${DIFF[k].name}<br><span style="color:#6c7266;font-size:10px">${DIFF[k].note}</span></button>`).join('')}</div>
     <button class="btn hot" id="begin">BEGIN WATCH</button>`);
   document.querySelectorAll('#diffRow .band').forEach(b=>b.onclick=()=>{ G.diff=b.dataset.d; localStorage.setItem('sr9.htf.diff',G.diff); document.querySelectorAll('#diffRow .band').forEach(x=>x.classList.toggle('on',x===b)); });
@@ -645,7 +723,7 @@ $('c').addEventListener('pointerdown',e=>{
 });
 $('c').addEventListener('contextmenu',e=>e.preventDefault());
 function togglePause(){ if($('overlay').classList.contains('on')) return; G.paused=!G.paused; hud(); }
-$('bGo').onclick=()=>startWave(); $('bPing').onclick=()=>ping();
+$('bGo').onclick=()=>startWave(); $('bPing').onclick=()=>ping(); $('bDrone').onclick=()=>toggleDrone();
 $('bSpeed').onclick=()=>{ G.speed=G.speed===1?2:G.speed===2?3:1; hud(); };
 $('bPause').onclick=togglePause; $('bLog').onclick=()=>{ if($('overlay').classList.contains('on')) closeCard(); else showLog(); };
 $('bMute').onclick=()=>{ muted=!muted; hud(); };
@@ -654,10 +732,10 @@ window.addEventListener('keydown',e=>{
   if(G.phase==='title') return;
   if(k==='l'){ if($('overlay').classList.contains('on')&&G.phase!=='over') closeCard(); else if(G.phase!=='over') showLog(); return; }
   if($('overlay').classList.contains('on')) return;
-  if(k>='1'&&k<='6'){ selectBuild(TOWER_ORDER[+k-1]); return; }
+  if(k>='1'&&k<='9'){ selectBuild(TOWER_ORDER[+k-1]); return; }
   if(k==='escape'){ G.build=null; G.sel=null; renderBuild(); renderPanel(); }
   else if(k===' '){ e.preventDefault(); startWave(); }
-  else if(k==='r') ping(); else if(k==='p') togglePause(); else if(k==='f'){ G.speed=G.speed===1?2:G.speed===2?3:1; hud(); } else if(k==='m'){ muted=!muted; hud(); }
+  else if(k==='r') ping(); else if(k==='d') toggleDrone(); else if(k==='p') togglePause(); else if(k==='f'){ G.speed=G.speed===1?2:G.speed===2?3:1; hud(); } else if(k==='m'){ muted=!muted; hud(); }
   else if(G.sel){
     if('qwe'.includes(k)&&k.length===1){ tuneTower(G.sel,BK['qwe'.indexOf(k)]); renderPanel(); }
     else if(k==='u'){ if(upgradeTower(G.sel)){ renderPanel(); hud(); } }
@@ -679,7 +757,7 @@ let bi=0; (function bootStep(){ $('bootText').textContent=bootLines[bi]; bi++; i
 feedClear(); renderBuild(); renderPanel(); hud(); requestAnimationFrame(frame);
 
 /* test/bot hook */
-window.HTF={TUNE,upgradeCost,G,update,placeTower,upgradeTower,tuneTower,startWave,ping,resetGame,genWave,sellTower,BLOCK,TOWER_DEFS,ALIEN_DEFS,posAt,PATH_LEN,CELL,COLS,ROWS,BK,detectable,TOTAL_WAVES};
+window.HTF={DRONE,toggleDrone,detonateDrone,isUnlocked,TUNE,upgradeCost,G,update,placeTower,upgradeTower,tuneTower,startWave,ping,resetGame,genWave,sellTower,BLOCK,TOWER_DEFS,ALIEN_DEFS,posAt,PATH_LEN,CELL,COLS,ROWS,BK,detectable,TOTAL_WAVES};
 </script>
 </body>
 </html>
