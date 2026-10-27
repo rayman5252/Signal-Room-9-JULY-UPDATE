@@ -605,26 +605,41 @@
     </a>
   </div>
 
+  <div class="directive">
+    <a class="directive-btn" href="site-j/" aria-label="Open restricted transmission">
+      <span class="directive-dot"></span>
+      <span class="directive-text">
+        <span class="directive-tag">// Incoming signal · <span id="directive-code-j">SJ-0000-00</span></span>
+        <span class="directive-title">Site J Activity</span>
+      </span>
+      <span class="directive-go">OPEN FILE &#9654;</span>
+    </a>
+  </div>
+
   <script>
   (function(){
-    var el=document.getElementById('directive-code'); if(!el) return;
     var A='ABCDEFGHJKLMNPQRSTUVWXYZ', D='0123456789';
     function pick(s){ return s.charAt(Math.floor(Math.random()*s.length)); }
-    function makeCode(){ return 'BRV-'+pick(D)+pick(D)+pick(D)+pick(D)+'-'+pick(A)+pick(D); }
-    if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches){ el.textContent=makeCode(); return; }
-    function lock(){
-      var target=makeCode(), i=0;
-      var t=setInterval(function(){
-        var out='';
-        for(var k=0;k<target.length;k++){ var c=target.charAt(k); out+= (k<i||c==='-') ? c : (/[A-Z]/.test(c)?pick(A):pick(D)); }
-        el.textContent=out; i+=0.5;
-        if(i>=target.length){ clearInterval(t); el.textContent=target; setTimeout(scramble,1800+Math.random()*1400); }
-      },70);
+    function animate(el,prefix){
+      if(!el) return;
+      function makeCode(){ return prefix+'-'+pick(D)+pick(D)+pick(D)+pick(D)+'-'+pick(A)+pick(D); }
+      if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches){ el.textContent=makeCode(); return; }
+      function lock(){
+        var target=makeCode(), i=0;
+        var t=setInterval(function(){
+          var out='';
+          for(var k=0;k<target.length;k++){ var c=target.charAt(k); out+= (k<i||c==='-') ? c : (/[A-Z]/.test(c)?pick(A):pick(D)); }
+          el.textContent=out; i+=0.5;
+          if(i>=target.length){ clearInterval(t); el.textContent=target; setTimeout(scramble,1800+Math.random()*1400); }
+        },70);
+      }
+      function scramble(){
+        var n=0, t=setInterval(function(){ el.textContent=makeCode(); if(++n>8){ clearInterval(t); lock(); } },60);
+      }
+      lock();
     }
-    function scramble(){
-      var n=0, t=setInterval(function(){ el.textContent='BRV-'+pick(D)+pick(D)+pick(D)+pick(D)+'-'+pick(A)+pick(D); if(++n>8){ clearInterval(t); lock(); } },60);
-    }
-    lock();
+    animate(document.getElementById('directive-code'),'BRV');
+    animate(document.getElementById('directive-code-j'),'SJ');
   })();
   </script>
   <footer>
