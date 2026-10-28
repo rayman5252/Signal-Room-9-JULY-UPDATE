@@ -753,6 +753,25 @@
           }
     })();
 </script>
+  <audio id="sr9-bed" src="assets/radio_static.m4a" loop preload="none"></audio>
+  <button id="sr9-snd" type="button" aria-label="Toggle radio static" style="position:fixed;top:12px;right:12px;z-index:50;background:rgba(10,13,11,0.85);color:var(--paper);border:1px solid var(--panel-edge);border-radius:999px;padding:6px 12px;font:11px 'IBM Plex Mono',monospace;letter-spacing:1px;cursor:pointer">RADIO: OFF</button>
+  <script>
+  (function(){
+    var bed=document.getElementById('sr9-bed'), btn=document.getElementById('sr9-snd');
+    bed.volume=0.5;
+    var muted=false;
+    try{ muted=localStorage.getItem('sr9-radio')==='off'; }catch(e){}
+    function label(){ btn.textContent=bed.paused?'RADIO: OFF':'RADIO: ON'; }
+    function start(){ if(muted||!bed.paused) return; bed.play().then(label).catch(function(){}); }
+    ['pointerdown','keydown','touchstart'].forEach(function(ev){ window.addEventListener(ev,function once(e){ if(e.target===btn) return; start(); window.removeEventListener(ev,once); },{passive:true}); });
+    btn.addEventListener('click',function(){
+      if(bed.paused){ muted=false; bed.play().then(label).catch(function(){}); }
+      else{ muted=true; bed.pause(); label(); }
+      try{ localStorage.setItem('sr9-radio',muted?'off':'on'); }catch(e){}
+    });
+    start();
+  })();
+  </script>
   <script src="script.js"></script>
 </body>
 </html>
